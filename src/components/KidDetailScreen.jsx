@@ -176,12 +176,11 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
         <div style={{ fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>做家事賺錢</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
           {chores.map((c) => {
-            const alreadyPending = pendingChores.some((p) => p.chore_id === c.id);
             const submitting = submittingChoreId === c.id;
             return (
               <button
                 key={c.id}
-                disabled={alreadyPending || submitting}
+                disabled={submitting}
                 onClick={() => requestChore(c)}
                 style={{
                   border: `2px solid ${theme.accent}`,
@@ -191,7 +190,7 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  opacity: alreadyPending || submitting ? 0.5 : 1,
+                  opacity: submitting ? 0.5 : 1,
                 }}
               >
                 <span style={{ fontWeight: 800 }}>{submitting ? "送出中..." : c.name}</span>
