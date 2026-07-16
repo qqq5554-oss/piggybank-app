@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from "react";
 import { ChevronLeft } from "lucide-react";
-import { fetchTransactions, requestChore as apiRequestChore, setGoal as apiSetGoal } from "../api/client";
-import { currency, themeOf } from "../utils/format";
+import {
+  fetchTransactions,
+  requestChore as apiRequestChore,
+  setGoal as apiSetGoal,
+  toggleResponsibility as apiToggleResponsibility,
+  requestMissionComplete as apiRequestMissionComplete,
+} from "../api/client";
+import { currency, themeOf, computeStreak } from "../utils/format";
 import PiggyIllustration from "./PiggyIllustration";
 import TransactionList from "./TransactionList";
 
-export default function KidDetailScreen({ kid, chores, pendingChores, onBack, refetch }) {
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+export default function KidDetailScreen({ kid, chores, pendingChores, responsibilities, responsibilityLogs, missions, onBack, refetch }) {
   const [transactions, setTransactions] = useState([]);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalName, setGoalName] = useState(kid.goal_name || "");
   const [goalAmount, setGoalAmount] = useState(kid.goal_amount || "");
   const [savingGoal, setSavingGoal] = useState(false);
   const [submittingChoreId, setSubmittingChoreId] = useState(null);
+  const [submittingRespId, setSubmittingRespId] = useState(null);
+  const [submittingMissionId, setSubmittingMissionId] = useState(null);
   const theme = themeOf(kid.theme_id);
 
   useEffect(() => {
@@ -67,6 +77,34 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
 
   const goalPct = kid.goal_amount > 0 ? Math.min(100, Math.round((kid.balance / kid.goal_amount) * 100)) : 0;
 
+  const done = todayKey();
+  const doneTodayIds = new Set(responsibilityLogs.filter((l) => l.log_date === done).map((l) => l.responsibility_id));
+  const streak = computeStreak(responsibilityLogs, responsibilities.length);
+
+  const toggleResponsibility = async (resp) => {
+    setSubmittingRespId(resp.id);
+    try {
+      await apiToggleResponsibility(kid.id, resp.id);
+      await refetch();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmittingRespId(null);
+    }
+  };
+
+  const completeMission = async (mission) => {
+    setSubmittingMissionId(mission.id);
+    try {
+      await apiRequestMissionComplete(mission.id);
+      await refetch();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmittingMissionId(null);
+    }
+  };
+
   return (
     <div style={{ background: theme.light, minHeight: "100vh" }}>
       <div style={{ background: theme.accent, display: "flex", alignItems: "center", padding: "14px 12px" }}>
@@ -84,6 +122,10 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
           {currency(kid.balance)}
         </div>
         <PiggyIllustration fill={kid.goal_amount ? goalPct : Math.min(100, kid.balance / 10)} color={theme.accent} />
+        <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 28, fontSize: 13, fontWeight: 700, color: "#8A7457" }}>
+          <span>⭐ 責任值 {kid.character_points || 0}</span>
+          <span>🔥 連續 {streak} 天</span>
+        </div>
       </div>
 
       <div style={{ padding: "26px 18px 40px" }}>
@@ -160,6 +202,79 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
             </div>
           )}
         </div>
+
+        {responsibilities.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>🏠 今日責任</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {responsibilities.map((r) => {
+                const isDone = doneTodayIds.has(r.id);
+                const submitting = submittingRespId === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    disabled={submitting}
+                    onClick={() => toggleResponsibility(r)}
+                    style={{
+                      border: `2px solid ${isDone ? theme.accent : "#EEE4D8"}`,
+                      borderRadius: 14,
+                      padding: "12px 14px",
+                      background: isDone ? theme.bg : "#fff",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      opacity: submitting ? 0.5 : 1,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>{isDone ? "✅ " : "⬜ "}{r.name}</span>
+                    <span style={{ fontSize: 12, color: "#B4A392" }}>+{r.points}⭐</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {missions.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>🎯 特殊任務</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {missions.map((m) => {
+                const submitting = submittingMissionId === m.id;
+                return (
+                  <div
+                    key={m.id}
+                    style={{
+                      border: `2px solid ${theme.accent}`,
+                      borderRadius: 14,
+                      padding: "12px 14px",
+                      background: "#fff",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>{m.name}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 800, color: theme.accentDark }}>+{m.amount}</span>
+                      {m.status === "open" && (
+                        <button
+                          disabled={submitting}
+                          onClick={() => completeMission(m)}
+                          style={{ border: "none", borderRadius: 10, padding: "6px 12px", background: theme.accent, color: "#fff", fontWeight: 700, fontSize: 12.5, opacity: submitting ? 0.6 : 1 }}
+                        >
+                          {submitting ? "送出中..." : "完成"}
+                        </button>
+                      )}
+                      {m.status === "pending" && <span style={{ fontSize: 12, color: "#B4A392" }}>⏳ 審核中</span>}
+                      {m.status === "done" && <span style={{ fontSize: 12, color: "#3DB88A" }}>✅ 已完成</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {pendingChores.length > 0 && (
           <div style={{ marginBottom: 16 }}>

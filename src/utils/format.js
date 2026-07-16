@@ -16,3 +16,24 @@ export const KID_THEMES = [
 export const AVATARS = ["🐶", "🐱", "🐰", "🦊", "🐼", "🦁", "🐨", "🐯", "🐸"];
 
 export const themeOf = (id) => KID_THEMES.find((t) => t.id === id) || KID_THEMES[0];
+
+// 從打卡紀錄計算連續完成天數：某一天要所有責任項目都打卡才算完成的一天
+export function computeStreak(responsibilityLogs, totalCount) {
+  if (!totalCount) return 0;
+  const counts = {};
+  responsibilityLogs.forEach((l) => {
+    counts[l.log_date] = (counts[l.log_date] || 0) + 1;
+  });
+  let streak = 0;
+  const d = new Date();
+  for (;;) {
+    const key = d.toISOString().slice(0, 10);
+    if ((counts[key] || 0) >= totalCount) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
