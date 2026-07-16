@@ -57,3 +57,70 @@ insert into chores (name, amount) values
 insert into kids (name, avatar, theme_id) values
   ('小安', '🐶', 'peach'),
   ('小美', '🐱', 'mint');
+
+-- ============================================================
+-- Phase 1 追加（生活責任 / 特殊任務 / 責任值 / 違規紀錄）
+-- ⚠️ 既有資料庫也可以直接執行這一段，全部用 IF NOT EXISTS，
+--    不會影響已經存在的資料表
+-- ============================================================
+
+alter table kids add column if not exists character_points numeric not null default 0;
+
+-- 生活責任：每天固定要做的事，不給錢，只加責任值
+create table if not exists responsibilities (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  points numeric not null default 1,
+  created_at timestamptz not null default now()
+);
+
+-- 每個小孩每天對每項責任的打卡紀錄（同一天同一項只能打卡一次）
+create table if not exists responsibility_logs (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  responsibility_id uuid not null references responsibilities(id) on delete cascade,
+  log_date date not null,
+  created_at timestamptz not null default now(),
+  unique (kid_id, responsibility_id, log_date)
+);
+
+-- 特殊任務：一次性、金額較大的任務
+create table if not exists missions (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  name text not null,
+  amount numeric not null,
+  status text not null default 'open' check (status in ('open', 'pending', 'done')),
+  created_at timestamptz not null default now()
+);
+
+-- 責任值異動紀錄（跟金錢的 transactions 分開的獨立帳本）
+create table if not exists character_point_logs (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  delta numeric not null,
+  reason text not null,
+  created_at timestamptz not null default now()
+);
+
+-- 違規紀錄：可同時扣錢、扣責任值、記錄禁止的權利
+create table if not exists violations (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  description text not null,
+  money_delta numeric not null default 0,
+  points_delta numeric not null default 0,
+  privilege_note text,
+  created_at timestamptz not null default now()
+);
+
+insert into responsibilities (name, points)
+select * from (values
+  ('整理餐袋', 1),
+  ('整理書包', 1),
+  ('準備外出用品', 1),
+  ('摺棉被', 1),
+  ('收玩具', 1),
+  ('刷牙', 1)
+) as seed(name, points)
+where not exists (select 1 from responsibilities);

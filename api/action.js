@@ -12,6 +12,14 @@ const PARENT_ACTIONS = new Set([
   "add_chore",
   "delete_chore",
   "change_pin",
+  "add_responsibility",
+  "delete_responsibility",
+  "add_mission",
+  "approve_mission",
+  "reject_mission",
+  "delete_mission",
+  "award_points",
+  "add_violation",
 ]);
 
 async function checkPin(pin) {
@@ -50,6 +58,42 @@ export default async function handler(req, res) {
           update kids set goal_name = ${goalName}, goal_amount = ${goalAmount}
           where id = ${kidId}
         `;
+        break;
+      }
+      case "toggle_responsibility": {
+        const { kidId, responsibilityId } = payload;
+        const rows = await sql`
+          select r.points, r.name, rl.id as log_id
+          from responsibilities r
+          left join responsibility_logs rl
+            on rl.responsibility_id = r.id and rl.kid_id = ${kidId} and rl.log_date = current_date
+          where r.id = ${responsibilityId}
+        `;
+        const r = rows[0];
+        if (!r) return res.status(404).json({ error: "找不到這項責任" });
+
+        if (r.log_id) {
+          await sql.transaction([
+            sql`delete from responsibility_logs where id = ${r.log_id}`,
+            sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, ${-r.points}, ${"取消打卡：" + r.name})`,
+            sql`update kids set character_points = character_points - ${r.points} where id = ${kidId}`,
+          ]);
+        } else {
+          await sql.transaction([
+            sql`insert into responsibility_logs (kid_id, responsibility_id, log_date) values (${kidId}, ${responsibilityId}, current_date)`,
+            sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, ${r.points}, ${"完成：" + r.name})`,
+            sql`update kids set character_points = character_points + ${r.points} where id = ${kidId}`,
+          ]);
+        }
+        break;
+      }
+      case "request_mission_complete": {
+        const rows = await sql`
+          update missions set status = 'pending'
+          where id = ${payload.missionId} and status = 'open'
+          returning id
+        `;
+        if (!rows[0]) return res.status(400).json({ error: "任務狀態不正確" });
         break;
       }
       case "verify_pin": {
@@ -121,6 +165,74 @@ export default async function handler(req, res) {
       case "change_pin": {
         const { newPin } = payload;
         await sql`update app_settings set value = ${newPin} where key = 'parent_pin'`;
+        break;
+      }
+      case "add_responsibility": {
+        const { name, points } = payload;
+        await sql`insert into responsibilities (name, points) values (${name}, ${points})`;
+        break;
+      }
+      case "delete_responsibility": {
+        await sql`delete from responsibilities where id = ${payload.responsibilityId}`;
+        break;
+      }
+      case "add_mission": {
+        const { kidId, name, amount } = payload;
+        await sql`insert into missions (kid_id, name, amount) values (${kidId}, ${name}, ${amount})`;
+        break;
+      }
+      case "approve_mission": {
+        const { missionId } = payload;
+        const rows = await sql`select * from missions where id = ${missionId}`;
+        const m = rows[0];
+        if (!m) return res.status(404).json({ error: "找不到這項任務" });
+
+        await sql.transaction([
+          sql`
+            insert into transactions (kid_id, type, amount, note)
+            values (${m.kid_id}, 'income', ${m.amount}, ${"特殊任務：" + m.name})
+          `,
+          sql`update kids set balance = balance + ${m.amount} where id = ${m.kid_id}`,
+          sql`update missions set status = 'done' where id = ${missionId}`,
+        ]);
+        break;
+      }
+      case "reject_mission": {
+        await sql`update missions set status = 'open' where id = ${payload.missionId}`;
+        break;
+      }
+      case "delete_mission": {
+        await sql`delete from missions where id = ${payload.missionId}`;
+        break;
+      }
+      case "award_points": {
+        const { kidId, delta, reason } = payload;
+        await sql.transaction([
+          sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, ${delta}, ${reason})`,
+          sql`update kids set character_points = character_points + ${delta} where id = ${kidId}`,
+        ]);
+        break;
+      }
+      case "add_violation": {
+        const { kidId, description, moneyDelta = 0, pointsDelta = 0, privilegeNote = null } = payload;
+        const queries = [
+          sql`
+            insert into violations (kid_id, description, money_delta, points_delta, privilege_note)
+            values (${kidId}, ${description}, ${moneyDelta}, ${pointsDelta}, ${privilegeNote})
+          `,
+        ];
+        if (moneyDelta) {
+          queries.push(sql`
+            insert into transactions (kid_id, type, amount, note)
+            values (${kidId}, 'penalty', ${Math.abs(moneyDelta)}, ${description})
+          `);
+          queries.push(sql`update kids set balance = balance + ${moneyDelta} where id = ${kidId}`);
+        }
+        if (pointsDelta) {
+          queries.push(sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, ${pointsDelta}, ${description})`);
+          queries.push(sql`update kids set character_points = character_points + ${pointsDelta} where id = ${kidId}`);
+        }
+        await sql.transaction(queries);
         break;
       }
       default:

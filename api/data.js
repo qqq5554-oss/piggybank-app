@@ -10,13 +10,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const [kids, chores, pendingChores] = await Promise.all([
+    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions] = await Promise.all([
       sql`select * from kids order by created_at`,
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
+      sql`select * from responsibilities order by created_at`,
+      sql`select * from responsibility_logs where log_date > current_date - interval '60 days' order by log_date`,
+      sql`select * from missions order by created_at`,
     ]);
 
-    res.status(200).json({ kids, chores, pendingChores });
+    res.status(200).json({ kids, chores, pendingChores, responsibilities, responsibilityLogs, missions });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "資料讀取失敗" });

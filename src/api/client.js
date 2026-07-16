@@ -42,3 +42,21 @@ export const updateKid = (kidId, fields, pin) => post("update_kid", { kidId, ...
 export const addChore = (name, amount, pin) => post("add_chore", { name, amount }, pin);
 export const deleteChore = (choreId, pin) => post("delete_chore", { choreId }, pin);
 export const changePin = (newPin, pin) => post("change_pin", { newPin }, pin);
+
+// ------- 生活責任 -------
+export const toggleResponsibility = (kidId, responsibilityId) =>
+  post("toggle_responsibility", { kidId, responsibilityId });
+export const addResponsibility = (name, points, pin) => post("add_responsibility", { name, points }, pin);
+export const deleteResponsibility = (responsibilityId, pin) => post("delete_responsibility", { responsibilityId }, pin);
+
+// ------- 特殊任務 -------
+export const requestMissionComplete = (missionId) => post("request_mission_complete", { missionId });
+export const addMission = (kidId, name, amount, pin) => post("add_mission", { kidId, name, amount }, pin);
+export const approveMission = (missionId, pin) => post("approve_mission", { missionId }, pin);
+export const rejectMission = (missionId, pin) => post("reject_mission", { missionId }, pin);
+export const deleteMission = (missionId, pin) => post("delete_mission", { missionId }, pin);
+
+// ------- 責任值 / 違規紀錄 -------
+export const awardPoints = (kidId, delta, reason, pin) => post("award_points", { kidId, delta, reason }, pin);
+export const addViolation = (kidId, description, moneyDelta, pointsDelta, privilegeNote, pin) =>
+  post("add_violation", { kidId, description, moneyDelta, pointsDelta, privilegeNote }, pin);
