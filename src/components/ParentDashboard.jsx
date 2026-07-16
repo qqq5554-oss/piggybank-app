@@ -66,18 +66,29 @@ export default function ParentDashboard({ kids, chores, pendingChores, pin, onBa
 // ---------------- 審核 ----------------
 function ReviewTab({ kids, pendingChores, pin, refetch }) {
   const kidMap = Object.fromEntries(kids.map((k) => [k.id, k]));
+  const [processingId, setProcessingId] = useState(null);
 
   const approve = async (p) => {
+    setProcessingId(p.id);
     try {
       await approveChore(p.id, pin);
-      refetch();
+      await refetch();
     } catch (e) {
       alert(e.message);
+    } finally {
+      setProcessingId(null);
     }
   };
   const reject = async (p) => {
-    await rejectChore(p.id, pin);
-    refetch();
+    setProcessingId(p.id);
+    try {
+      await rejectChore(p.id, pin);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   if (pendingChores.length === 0) return <div style={{ textAlign: "center", color: "#B4A392", padding: 30 }}>目前沒有待審核的申請 ✅</div>;
@@ -97,10 +108,18 @@ function ReviewTab({ kids, pendingChores, pin, refetch }) {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontWeight: 800, color: "#3DB88A" }}>+{p.amount}</span>
-              <button onClick={() => reject(p)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #F1D4D4", background: "#FFF5F5" }}>
+              <button
+                onClick={() => reject(p)}
+                disabled={processingId === p.id}
+                style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #F1D4D4", background: "#FFF5F5", opacity: processingId === p.id ? 0.5 : 1 }}
+              >
                 <X size={16} color="#E85D5D" />
               </button>
-              <button onClick={() => approve(p)} style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "#3DB88A" }}>
+              <button
+                onClick={() => approve(p)}
+                disabled={processingId === p.id}
+                style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "#3DB88A", opacity: processingId === p.id ? 0.5 : 1 }}
+              >
                 <Check size={16} color="#fff" />
               </button>
             </div>
@@ -114,15 +133,19 @@ function ReviewTab({ kids, pendingChores, pin, refetch }) {
 // ---------------- 管理帳戶 ----------------
 function KidsManageTab({ kids, pin, refetch }) {
   const [openId, setOpenId] = useState(kids[0]?.id || null);
+  const [addingKid, setAddingKid] = useState(false);
 
   const handleAddKid = async () => {
     const usedThemes = kids.map((k) => k.theme_id);
     const theme = KID_THEMES.find((t) => !usedThemes.includes(t.id)) || KID_THEMES[kids.length % KID_THEMES.length];
+    setAddingKid(true);
     try {
       await addKid("新朋友", AVATARS[kids.length % AVATARS.length], theme.id, pin);
-      refetch();
+      await refetch();
     } catch (e) {
       alert(e.message);
+    } finally {
+      setAddingKid(false);
     }
   };
 
@@ -131,8 +154,12 @@ function KidsManageTab({ kids, pin, refetch }) {
       {kids.map((kid) => (
         <KidManageCard key={kid.id} kid={kid} isOpen={openId === kid.id} onToggle={() => setOpenId(openId === kid.id ? null : kid.id)} pin={pin} refetch={refetch} />
       ))}
-      <button onClick={handleAddKid} style={{ width: "100%", padding: 12, borderRadius: 14, border: "2px dashed #D8C6B0", background: "none", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-        <Plus size={18} /> 新增小朋友
+      <button
+        onClick={handleAddKid}
+        disabled={addingKid}
+        style={{ width: "100%", padding: 12, borderRadius: 14, border: "2px dashed #D8C6B0", background: "none", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: addingKid ? 0.6 : 1 }}
+      >
+        <Plus size={18} /> {addingKid ? "新增中..." : "新增小朋友"}
       </button>
     </div>
   );
@@ -144,29 +171,45 @@ function KidManageCard({ kid, isOpen, onToggle, pin, refetch }) {
   const [note, setNote] = useState("");
   const [type, setType] = useState("income");
   const [transactions, setTransactions] = useState([]);
+  const [savingField, setSavingField] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
 
   useEffect(() => {
     if (isOpen) fetchTransactions(kid.id).then((t) => setTransactions(t.slice(0, 5))).catch(console.error);
   }, [isOpen, kid.id]);
 
+  const updateField = async (fields) => {
+    setSavingField(true);
+    try {
+      await updateKid(kid.id, fields, pin);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingField(false);
+    }
+  };
+
   const adjust = async () => {
     const amt = Number(amount);
     if (!amt || amt <= 0) return;
     const defaultNote = type === "income" ? "家長加值" : type === "penalty" ? "違規扣款" : "日常花費";
+    setAdjusting(true);
     try {
       await adjustBalance(kid.id, type, amt, note.trim() || defaultNote, pin);
       setAmount("");
       setNote("");
-      refetch();
+      await refetch();
     } catch (e) {
       alert(e.message);
+    } finally {
+      setAdjusting(false);
     }
   };
 
   const rename = async (newName) => {
     if (newName.trim() && newName.trim() !== kid.name) {
-      await updateKid(kid.id, { name: newName.trim() }, pin);
-      refetch();
+      await updateField({ name: newName.trim() });
     }
   };
 
@@ -190,8 +233,9 @@ function KidManageCard({ kid, isOpen, onToggle, pin, refetch }) {
             {AVATARS.map((a) => (
               <button
                 key={a}
-                onClick={() => updateKid(kid.id, { avatar: a }, pin).then(refetch)}
-                style={{ width: 36, height: 36, borderRadius: 10, border: `2px solid ${kid.avatar === a ? theme.accent : "transparent"}`, background: kid.avatar === a ? theme.bg : "#F7F1E9", fontSize: 18 }}
+                disabled={savingField}
+                onClick={() => updateField({ avatar: a })}
+                style={{ width: 36, height: 36, borderRadius: 10, border: `2px solid ${kid.avatar === a ? theme.accent : "transparent"}`, background: kid.avatar === a ? theme.bg : "#F7F1E9", fontSize: 18, opacity: savingField ? 0.5 : 1 }}
               >
                 {a}
               </button>
@@ -203,8 +247,9 @@ function KidManageCard({ kid, isOpen, onToggle, pin, refetch }) {
             {KID_THEMES.map((t) => (
               <button
                 key={t.id}
-                onClick={() => updateKid(kid.id, { themeId: t.id }, pin).then(refetch)}
-                style={{ width: 32, height: 32, borderRadius: "50%", background: t.accent, border: `3px solid ${kid.theme_id === t.id ? "#5A4632" : "transparent"}` }}
+                disabled={savingField}
+                onClick={() => updateField({ themeId: t.id })}
+                style={{ width: 32, height: 32, borderRadius: "50%", background: t.accent, border: `3px solid ${kid.theme_id === t.id ? "#5A4632" : "transparent"}`, opacity: savingField ? 0.5 : 1 }}
               />
             ))}
           </div>
@@ -239,8 +284,8 @@ function KidManageCard({ kid, isOpen, onToggle, pin, refetch }) {
             <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="金額" value={amount} onChange={(e) => setAmount(e.target.value)} />
             <input style={{ ...inputStyle, flex: 1 }} placeholder="備註（選填）" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
-          <button onClick={adjust} style={{ ...primaryBtnStyle, background: theme.accent, marginTop: 10 }}>
-            確認送出
+          <button onClick={adjust} disabled={adjusting} style={{ ...primaryBtnStyle, background: theme.accent, marginTop: 10, opacity: adjusting ? 0.6 : 1 }}>
+            {adjusting ? "送出中..." : "確認送出"}
           </button>
 
           {transactions.length > 0 && (
@@ -260,22 +305,34 @@ function KidManageCard({ kid, isOpen, onToggle, pin, refetch }) {
 function ChoresManageTab({ chores, pin, refetch }) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
 
   const add = async () => {
     if (!name.trim() || !Number(amount) || Number(amount) <= 0) return;
+    setAdding(true);
     try {
       await addChore(name.trim(), Number(amount), pin);
       setName("");
       setAmount("");
-      refetch();
+      await refetch();
     } catch (e) {
       alert(e.message);
+    } finally {
+      setAdding(false);
     }
   };
 
   const remove = async (id) => {
-    await deleteChore(id, pin);
-    refetch();
+    setRemovingId(id);
+    try {
+      await deleteChore(id, pin);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setRemovingId(null);
+    }
   };
 
   return (
@@ -285,7 +342,11 @@ function ChoresManageTab({ chores, pin, refetch }) {
           <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
             <span style={{ flex: 1 }}>{c.name}</span>
             <span style={{ color: "#3DB88A", fontWeight: 800 }}>+{c.amount}</span>
-            <button onClick={() => remove(c.id)} style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9" }}>
+            <button
+              onClick={() => remove(c.id)}
+              disabled={removingId === c.id}
+              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingId === c.id ? 0.5 : 1 }}
+            >
               <X size={14} color="#B4A392" />
             </button>
           </div>
@@ -296,8 +357,8 @@ function ChoresManageTab({ chores, pin, refetch }) {
         <input style={{ ...inputStyle, flex: 1 }} placeholder="家事名稱" value={name} onChange={(e) => setName(e.target.value)} />
         <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="金額" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </div>
-      <button onClick={add} style={{ ...primaryBtnStyle, background: "#E86A3A", marginTop: 10 }}>
-        新增
+      <button onClick={add} disabled={adding} style={{ ...primaryBtnStyle, background: "#E86A3A", marginTop: 10, opacity: adding ? 0.6 : 1 }}>
+        {adding ? "新增中..." : "新增"}
       </button>
     </div>
   );
@@ -308,10 +369,12 @@ function SettingsTab({ pin }) {
   const [pin1, setPin1] = useState("");
   const [pin2, setPin2] = useState("");
   const [msg, setMsg] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const doChangePin = async () => {
     if (pin1.length !== 4 || !/^\d{4}$/.test(pin1)) return setMsg("密碼需為 4 碼數字");
     if (pin1 !== pin2) return setMsg("兩次密碼不一致");
+    setSaving(true);
     try {
       await changePin(pin1, pin);
       setPin1("");
@@ -319,6 +382,8 @@ function SettingsTab({ pin }) {
       setMsg("密碼已更新 ✅（下次進入家長模式請用新密碼）");
     } catch (e) {
       setMsg(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -327,8 +392,8 @@ function SettingsTab({ pin }) {
       <label style={labelStyle}>修改家長密碼</label>
       <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="新密碼（4碼數字）" maxLength={4} value={pin1} onChange={(e) => setPin1(e.target.value.replace(/\D/g, ""))} />
       <input style={inputStyle} placeholder="再輸入一次" maxLength={4} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ""))} />
-      <button onClick={doChangePin} style={{ ...primaryBtnStyle, background: "#94795F", marginTop: 10 }}>
-        更新密碼
+      <button onClick={doChangePin} disabled={saving} style={{ ...primaryBtnStyle, background: "#94795F", marginTop: 10, opacity: saving ? 0.6 : 1 }}>
+        {saving ? "更新中..." : "更新密碼"}
       </button>
       {msg && <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#8A6E3D" }}>{msg}</div>}
     </div>

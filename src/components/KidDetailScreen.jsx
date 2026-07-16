@@ -11,6 +11,7 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
   const [goalName, setGoalName] = useState(kid.goal_name || "");
   const [goalAmount, setGoalAmount] = useState(kid.goal_amount || "");
   const [savingGoal, setSavingGoal] = useState(false);
+  const [submittingChoreId, setSubmittingChoreId] = useState(null);
   const theme = themeOf(kid.theme_id);
 
   useEffect(() => {
@@ -25,8 +26,15 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
   }, [kid.goal_name, kid.goal_amount, editingGoal]);
 
   const requestChore = async (chore) => {
-    await apiRequestChore(kid.id, chore);
-    refetch();
+    setSubmittingChoreId(chore.id);
+    try {
+      await apiRequestChore(kid.id, chore);
+      await refetch();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmittingChoreId(null);
+    }
   };
 
   const saveGoal = async () => {
@@ -128,14 +136,14 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
                 <button
                   onClick={saveGoal}
                   disabled={savingGoal}
-                  style={{ flex: 1, border: "none", borderRadius: 10, padding: "10px 12px", background: theme.accent, color: "#fff", fontWeight: 800 }}
+                  style={{ flex: 1, border: "none", borderRadius: 10, padding: "10px 12px", background: theme.accent, color: "#fff", fontWeight: 800, opacity: savingGoal ? 0.6 : 1 }}
                 >
-                  儲存
+                  {savingGoal ? "處理中..." : "儲存"}
                 </button>
                 <button
                   onClick={() => setEditingGoal(false)}
                   disabled={savingGoal}
-                  style={{ border: `2px solid ${theme.accent}`, borderRadius: 10, padding: "10px 12px", background: "#fff", fontWeight: 700, color: theme.accentDark }}
+                  style={{ border: `2px solid ${theme.accent}`, borderRadius: 10, padding: "10px 12px", background: "#fff", fontWeight: 700, color: theme.accentDark, opacity: savingGoal ? 0.6 : 1 }}
                 >
                   取消
                 </button>
@@ -143,7 +151,7 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
                   <button
                     onClick={clearGoal}
                     disabled={savingGoal}
-                    style={{ border: "2px solid #E3D3C2", borderRadius: 10, padding: "10px 12px", background: "#fff", fontWeight: 700, color: "#B4A392" }}
+                    style={{ border: "2px solid #E3D3C2", borderRadius: 10, padding: "10px 12px", background: "#fff", fontWeight: 700, color: "#B4A392", opacity: savingGoal ? 0.6 : 1 }}
                   >
                     清除目標
                   </button>
@@ -169,10 +177,11 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
           {chores.map((c) => {
             const alreadyPending = pendingChores.some((p) => p.chore_id === c.id);
+            const submitting = submittingChoreId === c.id;
             return (
               <button
                 key={c.id}
-                disabled={alreadyPending}
+                disabled={alreadyPending || submitting}
                 onClick={() => requestChore(c)}
                 style={{
                   border: `2px solid ${theme.accent}`,
@@ -182,10 +191,10 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  opacity: alreadyPending ? 0.5 : 1,
+                  opacity: alreadyPending || submitting ? 0.5 : 1,
                 }}
               >
-                <span style={{ fontWeight: 800 }}>{c.name}</span>
+                <span style={{ fontWeight: 800 }}>{submitting ? "送出中..." : c.name}</span>
                 <span style={{ fontWeight: 800, color: theme.accentDark }}>+{c.amount}</span>
               </button>
             );
