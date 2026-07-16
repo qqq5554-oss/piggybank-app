@@ -53,7 +53,7 @@ export default async function handler(req, res) {
         break;
       }
       case "verify_pin": {
-        const ok = await checkPin(payload.pin);
+        const ok = await checkPin(pin);
         return res.status(200).json({ ok });
       }
 
