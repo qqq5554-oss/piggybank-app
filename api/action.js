@@ -64,12 +64,14 @@ export default async function handler(req, res) {
         const p = rows[0];
         if (!p) return res.status(404).json({ error: "找不到這筆申請" });
 
-        await sql`
-          insert into transactions (kid_id, type, amount, note)
-          values (${p.kid_id}, 'income', ${p.amount}, ${"家事：" + p.chore_name})
-        `;
-        await sql`update kids set balance = balance + ${p.amount} where id = ${p.kid_id}`;
-        await sql`delete from pending_chores where id = ${pendingId}`;
+        await sql.transaction([
+          sql`
+            insert into transactions (kid_id, type, amount, note)
+            values (${p.kid_id}, 'income', ${p.amount}, ${"家事：" + p.chore_name})
+          `,
+          sql`update kids set balance = balance + ${p.amount} where id = ${p.kid_id}`,
+          sql`delete from pending_chores where id = ${pendingId}`,
+        ]);
         break;
       }
       case "reject_chore": {
@@ -79,11 +81,13 @@ export default async function handler(req, res) {
       case "adjust_balance": {
         const { kidId, type, amount, note } = payload;
         const delta = type === "income" ? amount : -amount;
-        await sql`
-          insert into transactions (kid_id, type, amount, note)
-          values (${kidId}, ${type}, ${amount}, ${note})
-        `;
-        await sql`update kids set balance = balance + ${delta} where id = ${kidId}`;
+        await sql.transaction([
+          sql`
+            insert into transactions (kid_id, type, amount, note)
+            values (${kidId}, ${type}, ${amount}, ${note})
+          `,
+          sql`update kids set balance = balance + ${delta} where id = ${kidId}`,
+        ]);
         break;
       }
       case "add_kid": {
