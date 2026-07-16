@@ -1,0 +1,14 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# env files (含機密資訊，不要上傳到GitHub)
+.env
+.env.local
+
+# editor / OS
+.DS_Store
+.vscode/
+*.log
