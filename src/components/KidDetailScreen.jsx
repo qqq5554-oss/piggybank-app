@@ -1,21 +1,60 @@
 import React, { useState, useEffect } from "react";
 import { ChevronLeft } from "lucide-react";
-import { fetchTransactions, requestChore as apiRequestChore } from "../api/client";
+import { fetchTransactions, requestChore as apiRequestChore, setGoal as apiSetGoal } from "../api/client";
 import { currency, themeOf } from "../utils/format";
 import PiggyIllustration from "./PiggyIllustration";
 import TransactionList from "./TransactionList";
 
 export default function KidDetailScreen({ kid, chores, pendingChores, onBack, refetch }) {
   const [transactions, setTransactions] = useState([]);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalName, setGoalName] = useState(kid.goal_name || "");
+  const [goalAmount, setGoalAmount] = useState(kid.goal_amount || "");
+  const [savingGoal, setSavingGoal] = useState(false);
   const theme = themeOf(kid.theme_id);
 
   useEffect(() => {
     fetchTransactions(kid.id).then(setTransactions).catch(console.error);
   }, [kid.id]);
 
+  useEffect(() => {
+    if (!editingGoal) {
+      setGoalName(kid.goal_name || "");
+      setGoalAmount(kid.goal_amount || "");
+    }
+  }, [kid.goal_name, kid.goal_amount, editingGoal]);
+
   const requestChore = async (chore) => {
     await apiRequestChore(kid.id, chore);
     refetch();
+  };
+
+  const saveGoal = async () => {
+    const amount = Number(goalAmount);
+    if (!goalName.trim() || !amount || amount <= 0) return;
+    setSavingGoal(true);
+    try {
+      await apiSetGoal(kid.id, { name: goalName.trim(), amount });
+      await refetch();
+      setEditingGoal(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingGoal(false);
+    }
+  };
+
+  const clearGoal = async () => {
+    setSavingGoal(true);
+    try {
+      await apiSetGoal(kid.id, null);
+      await refetch();
+      setEditingGoal(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingGoal(false);
+    }
   };
 
   const goalPct = kid.goal_amount > 0 ? Math.min(100, Math.round((kid.balance / kid.goal_amount) * 100)) : 0;
@@ -40,6 +79,80 @@ export default function KidDetailScreen({ kid, chores, pendingChores, onBack, re
       </div>
 
       <div style={{ padding: "26px 18px 40px" }}>
+        <div style={{ marginBottom: 16 }}>
+          {!editingGoal && kid.goal_amount > 0 && (
+            <div style={{ background: "#fff", borderRadius: 16, padding: "12px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 800, color: "#8A7457" }}>🎯 目標：{kid.goal_name}</div>
+                  <div style={{ fontSize: 13, color: "#B4A392" }}>
+                    {currency(kid.balance)} / {currency(kid.goal_amount)}（{goalPct}%）
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingGoal(true)}
+                  style={{ border: `2px solid ${theme.accent}`, borderRadius: 10, padding: "6px 12px", background: "#fff", fontWeight: 700, color: theme.accentDark }}
+                >
+                  編輯
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!editingGoal && !(kid.goal_amount > 0) && (
+            <button
+              onClick={() => setEditingGoal(true)}
+              style={{ width: "100%", border: `2px dashed ${theme.accent}`, borderRadius: 16, padding: "14px 16px", background: "#fff", fontWeight: 800, color: theme.accentDark }}
+            >
+              ＋ 設定存錢目標
+            </button>
+          )}
+
+          {editingGoal && (
+            <div style={{ background: "#fff", borderRadius: 16, padding: "14px 16px" }}>
+              <div style={{ fontWeight: 800, color: "#8A7457", marginBottom: 10 }}>🎯 設定目標</div>
+              <input
+                placeholder="想買什麼？"
+                value={goalName}
+                onChange={(e) => setGoalName(e.target.value)}
+                style={{ width: "100%", boxSizing: "border-box", border: "2px solid #E3D3C2", borderRadius: 10, padding: "10px 12px", marginBottom: 8, fontSize: 15 }}
+              />
+              <input
+                type="number"
+                placeholder="需要多少錢？"
+                value={goalAmount}
+                onChange={(e) => setGoalAmount(e.target.value)}
+                style={{ width: "100%", boxSizing: "border-box", border: "2px solid #E3D3C2", borderRadius: 10, padding: "10px 12px", marginBottom: 12, fontSize: 15 }}
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={saveGoal}
+                  disabled={savingGoal}
+                  style={{ flex: 1, border: "none", borderRadius: 10, padding: "10px 12px", background: theme.accent, color: "#fff", fontWeight: 800 }}
+                >
+                  儲存
+                </button>
+                <button
+                  onClick={() => setEditingGoal(false)}
+                  disabled={savingGoal}
+                  style={{ border: `2px solid ${theme.accent}`, borderRadius: 10, padding: "10px 12px", background: "#fff", fontWeight: 700, color: theme.accentDark }}
+                >
+                  取消
+                </button>
+                {kid.goal_amount > 0 && (
+                  <button
+                    onClick={clearGoal}
+                    disabled={savingGoal}
+                    style={{ border: "2px solid #E3D3C2", borderRadius: 10, padding: "10px 12px", background: "#fff", fontWeight: 700, color: "#B4A392" }}
+                  >
+                    清除目標
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {pendingChores.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>⏳ 等待爸媽審核</div>
