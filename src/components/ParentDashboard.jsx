@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, Check, X, Plus } from "lucide-react";
+import { ChevronLeft, Check, X, Plus, Pencil } from "lucide-react";
 import {
   fetchTransactions,
   approveChore,
@@ -23,6 +23,11 @@ import {
   addExpenseRule,
   deleteExpenseRule,
   setInterestRate,
+  updateChore,
+  updateResponsibility,
+  updateMission,
+  updateAllowanceRule,
+  updateExpenseRule,
 } from "../api/client";
 import { currency, formatDate, themeOf, KID_THEMES, AVATARS } from "../utils/format";
 import TransactionList from "./TransactionList";
@@ -468,6 +473,10 @@ function ChoresManageTab({ chores, pin, refetch }) {
   const [amount, setAmount] = useState("");
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const add = async () => {
     if (!name.trim() || !Number(amount) || Number(amount) <= 0) return;
@@ -496,22 +505,62 @@ function ChoresManageTab({ chores, pin, refetch }) {
     }
   };
 
+  const startEdit = (c) => {
+    setEditingId(c.id);
+    setEditName(c.name);
+    setEditAmount(String(c.amount));
+  };
+
+  const saveEdit = async () => {
+    if (!editName.trim() || !Number(editAmount) || Number(editAmount) <= 0) return;
+    setSavingEdit(true);
+    try {
+      await updateChore(editingId, editName.trim(), Number(editAmount), pin);
+      setEditingId(null);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-        {chores.map((c) => (
-          <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
-            <span style={{ flex: 1 }}>{c.name}</span>
-            <span style={{ color: "#3DB88A", fontWeight: 800 }}>+{c.amount}</span>
-            <button
-              onClick={() => remove(c.id)}
-              disabled={removingId === c.id}
-              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingId === c.id ? 0.5 : 1 }}
-            >
-              <X size={14} color="#B4A392" />
-            </button>
-          </div>
-        ))}
+        {chores.map((c) =>
+          editingId === c.id ? (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12 }}>
+              <input style={{ ...inputStyle, flex: 1 }} value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <input style={{ ...inputStyle, width: 70 }} type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit}
+                style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: "#3DB88A", opacity: savingEdit ? 0.5 : 1 }}
+              >
+                <Check size={14} color="#fff" />
+              </button>
+              <button onClick={() => setEditingId(null)} disabled={savingEdit} style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: "#F7F1E9" }}>
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          ) : (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
+              <span style={{ flex: 1 }}>{c.name}</span>
+              <span style={{ color: "#3DB88A", fontWeight: 800 }}>+{c.amount}</span>
+              <button onClick={() => startEdit(c)} style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F1E7DC" }}>
+                <Pencil size={12} color="#8A7457" />
+              </button>
+              <button
+                onClick={() => remove(c.id)}
+                disabled={removingId === c.id}
+                style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingId === c.id ? 0.5 : 1 }}
+              >
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          )
+        )}
       </div>
       <label style={labelStyle}>新增家事項目</label>
       <div style={{ display: "flex", gap: 8 }}>
@@ -531,6 +580,10 @@ function ResponsibilitiesManageTab({ responsibilities, pin, refetch }) {
   const [points, setPoints] = useState("1");
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editPoints, setEditPoints] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const add = async () => {
     if (!name.trim() || !Number(points) || Number(points) <= 0) return;
@@ -559,22 +612,62 @@ function ResponsibilitiesManageTab({ responsibilities, pin, refetch }) {
     }
   };
 
+  const startEdit = (r) => {
+    setEditingId(r.id);
+    setEditName(r.name);
+    setEditPoints(String(r.points));
+  };
+
+  const saveEdit = async () => {
+    if (!editName.trim() || !Number(editPoints) || Number(editPoints) <= 0) return;
+    setSavingEdit(true);
+    try {
+      await updateResponsibility(editingId, editName.trim(), Number(editPoints), pin);
+      setEditingId(null);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-        {responsibilities.map((r) => (
-          <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
-            <span style={{ flex: 1 }}>{r.name}</span>
-            <span style={{ color: "#94795F", fontWeight: 800 }}>+{r.points}⭐</span>
-            <button
-              onClick={() => remove(r.id)}
-              disabled={removingId === r.id}
-              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingId === r.id ? 0.5 : 1 }}
-            >
-              <X size={14} color="#B4A392" />
-            </button>
-          </div>
-        ))}
+        {responsibilities.map((r) =>
+          editingId === r.id ? (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12 }}>
+              <input style={{ ...inputStyle, flex: 1 }} value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <input style={{ ...inputStyle, width: 60 }} type="number" value={editPoints} onChange={(e) => setEditPoints(e.target.value)} />
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit}
+                style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: "#3DB88A", opacity: savingEdit ? 0.5 : 1 }}
+              >
+                <Check size={14} color="#fff" />
+              </button>
+              <button onClick={() => setEditingId(null)} disabled={savingEdit} style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: "#F7F1E9" }}>
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          ) : (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
+              <span style={{ flex: 1 }}>{r.name}</span>
+              <span style={{ color: "#94795F", fontWeight: 800 }}>+{r.points}⭐</span>
+              <button onClick={() => startEdit(r)} style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F1E7DC" }}>
+                <Pencil size={12} color="#8A7457" />
+              </button>
+              <button
+                onClick={() => remove(r.id)}
+                disabled={removingId === r.id}
+                style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingId === r.id ? 0.5 : 1 }}
+              >
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          )
+        )}
       </div>
       <label style={labelStyle}>新增生活責任項目</label>
       <div style={{ display: "flex", gap: 8 }}>
@@ -595,6 +688,10 @@ function MissionsManageTab({ kids, missions, pin, refetch }) {
   const [amount, setAmount] = useState("");
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const kidMap = Object.fromEntries(kids.map((k) => [k.id, k]));
   const statusLabel = { open: "待完成", pending: "審核中", done: "已完成" };
   const statusColor = { open: "#B4A392", pending: "#E8A23D", done: "#3DB88A" };
@@ -626,24 +723,67 @@ function MissionsManageTab({ kids, missions, pin, refetch }) {
     }
   };
 
+  const startEdit = (m) => {
+    setEditingId(m.id);
+    setEditName(m.name);
+    setEditAmount(String(m.amount));
+  };
+
+  const saveEdit = async () => {
+    if (!editName.trim() || !Number(editAmount) || Number(editAmount) <= 0) return;
+    setSavingEdit(true);
+    try {
+      await updateMission(editingId, editName.trim(), Number(editAmount), pin);
+      setEditingId(null);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-        {missions.map((m) => (
-          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
-            <span style={{ fontSize: 20 }}>{kidMap[m.kid_id]?.avatar}</span>
-            <span style={{ flex: 1 }}>{m.name}</span>
-            <span style={{ color: "#3DB88A", fontWeight: 800 }}>+{m.amount}</span>
-            <span style={{ fontSize: 11, color: statusColor[m.status], fontWeight: 800 }}>{statusLabel[m.status]}</span>
-            <button
-              onClick={() => remove(m.id)}
-              disabled={removingId === m.id}
-              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingId === m.id ? 0.5 : 1 }}
-            >
-              <X size={14} color="#B4A392" />
-            </button>
-          </div>
-        ))}
+        {missions.map((m) =>
+          editingId === m.id ? (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12 }}>
+              <span style={{ fontSize: 20 }}>{kidMap[m.kid_id]?.avatar}</span>
+              <input style={{ ...inputStyle, flex: 1 }} value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <input style={{ ...inputStyle, width: 70 }} type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit}
+                style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: "#3DB88A", opacity: savingEdit ? 0.5 : 1 }}
+              >
+                <Check size={14} color="#fff" />
+              </button>
+              <button onClick={() => setEditingId(null)} disabled={savingEdit} style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: "#F7F1E9" }}>
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          ) : (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
+              <span style={{ fontSize: 20 }}>{kidMap[m.kid_id]?.avatar}</span>
+              <span style={{ flex: 1 }}>{m.name}</span>
+              <span style={{ color: "#3DB88A", fontWeight: 800 }}>+{m.amount}</span>
+              <span style={{ fontSize: 11, color: statusColor[m.status], fontWeight: 800 }}>{statusLabel[m.status]}</span>
+              {m.status === "open" && (
+                <button onClick={() => startEdit(m)} style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F1E7DC" }}>
+                  <Pencil size={12} color="#8A7457" />
+                </button>
+              )}
+              <button
+                onClick={() => remove(m.id)}
+                disabled={removingId === m.id}
+                style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingId === m.id ? 0.5 : 1 }}
+              >
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          )
+        )}
       </div>
 
       <label style={labelStyle}>指定小孩</label>
@@ -700,6 +840,19 @@ function RecurringManageTab({ kids, allowanceRules, expenseRules, pin, refetch }
 
   const [rateInputs, setRateInputs] = useState({});
   const [savingRateId, setSavingRateId] = useState(null);
+
+  const [editingAllowanceId, setEditingAllowanceId] = useState(null);
+  const [editAllowanceAmount, setEditAllowanceAmount] = useState("");
+  const [editAllowanceFrequency, setEditAllowanceFrequency] = useState("weekly");
+  const [editAllowanceDayOfWeek, setEditAllowanceDayOfWeek] = useState(0);
+  const [editAllowanceDayOfMonth, setEditAllowanceDayOfMonth] = useState("1");
+  const [savingAllowanceEdit, setSavingAllowanceEdit] = useState(false);
+
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [editExpenseName, setEditExpenseName] = useState("");
+  const [editExpenseAmount, setEditExpenseAmount] = useState("");
+  const [editExpenseDayOfMonth, setEditExpenseDayOfMonth] = useState("1");
+  const [savingExpenseEdit, setSavingExpenseEdit] = useState(false);
 
   const addAllowance = async () => {
     const amt = Number(allowanceAmount);
@@ -763,6 +916,57 @@ function RecurringManageTab({ kids, allowanceRules, expenseRules, pin, refetch }
     }
   };
 
+  const startEditAllowance = (r) => {
+    setEditingAllowanceId(r.id);
+    setEditAllowanceAmount(String(r.amount));
+    setEditAllowanceFrequency(r.frequency);
+    setEditAllowanceDayOfWeek(r.day_of_week ?? 0);
+    setEditAllowanceDayOfMonth(String(r.day_of_month ?? 1));
+  };
+
+  const saveEditAllowance = async () => {
+    const amt = Number(editAllowanceAmount);
+    if (!amt || amt <= 0) return;
+    setSavingAllowanceEdit(true);
+    try {
+      await updateAllowanceRule(
+        editingAllowanceId,
+        amt,
+        editAllowanceFrequency,
+        editAllowanceFrequency === "weekly" ? Number(editAllowanceDayOfWeek) : null,
+        editAllowanceFrequency === "monthly" ? Number(editAllowanceDayOfMonth) : null,
+        pin
+      );
+      setEditingAllowanceId(null);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingAllowanceEdit(false);
+    }
+  };
+
+  const startEditExpense = (r) => {
+    setEditingExpenseId(r.id);
+    setEditExpenseName(r.name);
+    setEditExpenseAmount(String(r.amount));
+    setEditExpenseDayOfMonth(String(r.day_of_month));
+  };
+
+  const saveEditExpense = async () => {
+    if (!editExpenseName.trim() || !Number(editExpenseAmount) || Number(editExpenseAmount) <= 0) return;
+    setSavingExpenseEdit(true);
+    try {
+      await updateExpenseRule(editingExpenseId, editExpenseName.trim(), Number(editExpenseAmount), Number(editExpenseDayOfMonth), pin);
+      setEditingExpenseId(null);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingExpenseEdit(false);
+    }
+  };
+
   const saveRate = async (kid) => {
     const pct = Number(rateInputs[kid.id] ?? kid.interest_rate * 100);
     if (Number.isNaN(pct) || pct < 0) return;
@@ -781,22 +985,90 @@ function RecurringManageTab({ kids, allowanceRules, expenseRules, pin, refetch }
     <div>
       <label style={labelStyle}>💸 固定零用錢</label>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-        {allowanceRules.map((r) => (
-          <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
-            <span style={{ fontSize: 20 }}>{kidMap[r.kid_id]?.avatar}</span>
-            <span style={{ flex: 1, fontSize: 13 }}>
-              {r.frequency === "weekly" ? `每${WEEKDAY_LABELS[r.day_of_week]}` : `每月 ${r.day_of_month} 號`}
-            </span>
-            <span style={{ color: "#3DB88A", fontWeight: 800 }}>+{r.amount}</span>
-            <button
-              onClick={() => removeAllowance(r.id)}
-              disabled={removingAllowanceId === r.id}
-              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingAllowanceId === r.id ? 0.5 : 1 }}
-            >
-              <X size={14} color="#B4A392" />
-            </button>
-          </div>
-        ))}
+        {allowanceRules.map((r) =>
+          editingAllowanceId === r.id ? (
+            <div key={r.id} style={{ background: "#fff", padding: "10px 12px", borderRadius: 12 }}>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                {[
+                  { id: "weekly", label: "每週" },
+                  { id: "monthly", label: "每月" },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setEditAllowanceFrequency(opt.id)}
+                    style={{
+                      flex: 1,
+                      padding: "6px 6px",
+                      borderRadius: 10,
+                      border: "none",
+                      fontWeight: 700,
+                      fontSize: 12.5,
+                      background: editAllowanceFrequency === opt.id ? "#5A4632" : "#F1E7DC",
+                      color: editAllowanceFrequency === opt.id ? "#fff" : "#8A7457",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                {editAllowanceFrequency === "weekly" ? (
+                  <select style={{ ...inputStyle, flex: 1 }} value={editAllowanceDayOfWeek} onChange={(e) => setEditAllowanceDayOfWeek(e.target.value)}>
+                    {WEEKDAY_LABELS.map((label, i) => (
+                      <option key={i} value={i}>
+                        每{label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    style={{ ...inputStyle, flex: 1 }}
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={editAllowanceDayOfMonth}
+                    onChange={(e) => setEditAllowanceDayOfMonth(e.target.value)}
+                  />
+                )}
+                <input style={{ ...inputStyle, width: 90 }} type="number" value={editAllowanceAmount} onChange={(e) => setEditAllowanceAmount(e.target.value)} />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={saveEditAllowance}
+                  disabled={savingAllowanceEdit}
+                  style={{ flex: 1, border: "none", borderRadius: 10, padding: "8px 12px", background: "#3DB88A", color: "#fff", fontWeight: 700, opacity: savingAllowanceEdit ? 0.6 : 1 }}
+                >
+                  {savingAllowanceEdit ? "儲存中..." : "儲存"}
+                </button>
+                <button
+                  onClick={() => setEditingAllowanceId(null)}
+                  disabled={savingAllowanceEdit}
+                  style={{ border: "2px solid #E3D3C2", borderRadius: 10, padding: "8px 12px", background: "#fff", fontWeight: 700, color: "#B4A392" }}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
+              <span style={{ fontSize: 20 }}>{kidMap[r.kid_id]?.avatar}</span>
+              <span style={{ flex: 1, fontSize: 13 }}>
+                {r.frequency === "weekly" ? `每${WEEKDAY_LABELS[r.day_of_week]}` : `每月 ${r.day_of_month} 號`}
+              </span>
+              <span style={{ color: "#3DB88A", fontWeight: 800 }}>+{r.amount}</span>
+              <button onClick={() => startEditAllowance(r)} style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F1E7DC" }}>
+                <Pencil size={12} color="#8A7457" />
+              </button>
+              <button
+                onClick={() => removeAllowance(r.id)}
+                disabled={removingAllowanceId === r.id}
+                style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingAllowanceId === r.id ? 0.5 : 1 }}
+              >
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          )
+        )}
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
         {kids.map((k) => (
@@ -871,21 +1143,57 @@ function RecurringManageTab({ kids, allowanceRules, expenseRules, pin, refetch }
 
       <label style={labelStyle}>🏠 固定支出</label>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-        {expenseRules.map((r) => (
-          <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
-            <span style={{ fontSize: 20 }}>{kidMap[r.kid_id]?.avatar}</span>
-            <span style={{ flex: 1 }}>{r.name}</span>
-            <span style={{ fontSize: 13, color: "#B4A392" }}>每月 {r.day_of_month} 號</span>
-            <span style={{ color: "#E85D5D", fontWeight: 800 }}>-{r.amount}</span>
-            <button
-              onClick={() => removeExpense(r.id)}
-              disabled={removingExpenseId === r.id}
-              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingExpenseId === r.id ? 0.5 : 1 }}
-            >
-              <X size={14} color="#B4A392" />
-            </button>
-          </div>
-        ))}
+        {expenseRules.map((r) =>
+          editingExpenseId === r.id ? (
+            <div key={r.id} style={{ background: "#fff", padding: "10px 12px", borderRadius: 12 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input style={{ ...inputStyle, flex: 1 }} value={editExpenseName} onChange={(e) => setEditExpenseName(e.target.value)} />
+                <input style={{ ...inputStyle, width: 90 }} type="number" value={editExpenseAmount} onChange={(e) => setEditExpenseAmount(e.target.value)} />
+              </div>
+              <input
+                style={{ ...inputStyle, marginBottom: 8 }}
+                type="number"
+                min={1}
+                max={31}
+                value={editExpenseDayOfMonth}
+                onChange={(e) => setEditExpenseDayOfMonth(e.target.value)}
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={saveEditExpense}
+                  disabled={savingExpenseEdit}
+                  style={{ flex: 1, border: "none", borderRadius: 10, padding: "8px 12px", background: "#E85D5D", color: "#fff", fontWeight: 700, opacity: savingExpenseEdit ? 0.6 : 1 }}
+                >
+                  {savingExpenseEdit ? "儲存中..." : "儲存"}
+                </button>
+                <button
+                  onClick={() => setEditingExpenseId(null)}
+                  disabled={savingExpenseEdit}
+                  style={{ border: "2px solid #E3D3C2", borderRadius: 10, padding: "8px 12px", background: "#fff", fontWeight: 700, color: "#B4A392" }}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
+              <span style={{ fontSize: 20 }}>{kidMap[r.kid_id]?.avatar}</span>
+              <span style={{ flex: 1 }}>{r.name}</span>
+              <span style={{ fontSize: 13, color: "#B4A392" }}>每月 {r.day_of_month} 號</span>
+              <span style={{ color: "#E85D5D", fontWeight: 800 }}>-{r.amount}</span>
+              <button onClick={() => startEditExpense(r)} style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F1E7DC" }}>
+                <Pencil size={12} color="#8A7457" />
+              </button>
+              <button
+                onClick={() => removeExpense(r.id)}
+                disabled={removingExpenseId === r.id}
+                style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingExpenseId === r.id ? 0.5 : 1 }}
+              >
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          )
+        )}
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
         {kids.map((k) => (
