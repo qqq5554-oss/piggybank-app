@@ -25,6 +25,11 @@ const PARENT_ACTIONS = new Set([
   "add_expense_rule",
   "delete_expense_rule",
   "set_interest_rate",
+  "update_chore",
+  "update_responsibility",
+  "update_mission",
+  "update_allowance_rule",
+  "update_expense_rule",
 ]);
 
 async function checkPin(pin) {
@@ -167,6 +172,11 @@ export default async function handler(req, res) {
         await sql`delete from chores where id = ${payload.choreId}`;
         break;
       }
+      case "update_chore": {
+        const { choreId, name, amount } = payload;
+        await sql`update chores set name = ${name}, amount = ${amount} where id = ${choreId}`;
+        break;
+      }
       case "change_pin": {
         const { newPin } = payload;
         await sql`update app_settings set value = ${newPin} where key = 'parent_pin'`;
@@ -179,6 +189,11 @@ export default async function handler(req, res) {
       }
       case "delete_responsibility": {
         await sql`delete from responsibilities where id = ${payload.responsibilityId}`;
+        break;
+      }
+      case "update_responsibility": {
+        const { responsibilityId, name, points } = payload;
+        await sql`update responsibilities set name = ${name}, points = ${points} where id = ${responsibilityId}`;
         break;
       }
       case "add_mission": {
@@ -208,6 +223,16 @@ export default async function handler(req, res) {
       }
       case "delete_mission": {
         await sql`delete from missions where id = ${payload.missionId}`;
+        break;
+      }
+      case "update_mission": {
+        const { missionId, name, amount } = payload;
+        const rows = await sql`
+          update missions set name = ${name}, amount = ${amount}
+          where id = ${missionId} and status = 'open'
+          returning id
+        `;
+        if (!rows[0]) return res.status(400).json({ error: "任務已送出審核，無法編輯" });
         break;
       }
       case "award_points": {
@@ -252,6 +277,18 @@ export default async function handler(req, res) {
         await sql`delete from allowance_rules where id = ${payload.ruleId}`;
         break;
       }
+      case "update_allowance_rule": {
+        const { ruleId, amount, frequency, dayOfWeek = null, dayOfMonth = null } = payload;
+        await sql`
+          update allowance_rules set
+            amount = ${amount},
+            frequency = ${frequency},
+            day_of_week = ${dayOfWeek},
+            day_of_month = ${dayOfMonth}
+          where id = ${ruleId}
+        `;
+        break;
+      }
       case "add_expense_rule": {
         const { kidId, name, amount, dayOfMonth } = payload;
         await sql`
@@ -262,6 +299,11 @@ export default async function handler(req, res) {
       }
       case "delete_expense_rule": {
         await sql`delete from expense_rules where id = ${payload.ruleId}`;
+        break;
+      }
+      case "update_expense_rule": {
+        const { ruleId, name, amount, dayOfMonth } = payload;
+        await sql`update expense_rules set name = ${name}, amount = ${amount}, day_of_month = ${dayOfMonth} where id = ${ruleId}`;
         break;
       }
       case "set_interest_rate": {
