@@ -55,7 +55,7 @@ export default function ParentDashboard({
         <div style={{ width: 34 }} />
       </div>
 
-      <div style={{ display: "flex", gap: 6, padding: "0 14px 10px", overflowX: "auto" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 14px 10px" }}>
         {[
           { id: "review", label: `審核${reviewCount ? ` (${reviewCount})` : ""}` },
           { id: "kids", label: "管理帳戶" },
