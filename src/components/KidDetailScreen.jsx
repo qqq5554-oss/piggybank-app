@@ -121,7 +121,7 @@ export default function KidDetailScreen({ kid, chores, pendingChores, responsibi
         <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 40, fontWeight: 800, color: theme.accentDark }}>
           {currency(kid.balance)}
         </div>
-        <PiggyIllustration fill={kid.goal_amount ? goalPct : Math.min(100, kid.balance / 10)} color={theme.accent} />
+        <PiggyIllustration fill={kid.goal_amount ? goalPct : Math.min(100, kid.balance / 10)} />
         <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 28, fontSize: 13, fontWeight: 700, color: "#8A7457" }}>
           <span>⭐ 責任值 {kid.character_points || 0}</span>
           <span>🔥 連續 {streak} 天</span>
