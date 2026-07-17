@@ -18,11 +18,29 @@ import {
   deleteMission,
   awardPoints,
   addViolation,
+  addAllowanceRule,
+  deleteAllowanceRule,
+  addExpenseRule,
+  deleteExpenseRule,
+  setInterestRate,
 } from "../api/client";
 import { currency, formatDate, themeOf, KID_THEMES, AVATARS } from "../utils/format";
 import TransactionList from "./TransactionList";
 
-export default function ParentDashboard({ kids, chores, pendingChores, responsibilities, missions, pin, onBack, refetch }) {
+const WEEKDAY_LABELS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
+export default function ParentDashboard({
+  kids,
+  chores,
+  pendingChores,
+  responsibilities,
+  missions,
+  allowanceRules,
+  expenseRules,
+  pin,
+  onBack,
+  refetch,
+}) {
   const [tab, setTab] = useState("review");
   const pendingMissionCount = missions.filter((m) => m.status === "pending").length;
   const reviewCount = pendingChores.length + pendingMissionCount;
@@ -44,6 +62,7 @@ export default function ParentDashboard({ kids, chores, pendingChores, responsib
           { id: "chores", label: "家事清單" },
           { id: "responsibilities", label: "生活責任" },
           { id: "missions", label: "特殊任務" },
+          { id: "recurring", label: "定期收支" },
           { id: "settings", label: "設定" },
         ].map((t) => (
           <button
@@ -71,6 +90,9 @@ export default function ParentDashboard({ kids, chores, pendingChores, responsib
         {tab === "chores" && <ChoresManageTab chores={chores} pin={pin} refetch={refetch} />}
         {tab === "responsibilities" && <ResponsibilitiesManageTab responsibilities={responsibilities} pin={pin} refetch={refetch} />}
         {tab === "missions" && <MissionsManageTab kids={kids} missions={missions} pin={pin} refetch={refetch} />}
+        {tab === "recurring" && (
+          <RecurringManageTab kids={kids} allowanceRules={allowanceRules} expenseRules={expenseRules} pin={pin} refetch={refetch} />
+        )}
         {tab === "settings" && <SettingsTab pin={pin} />}
       </div>
     </div>
@@ -653,6 +675,282 @@ function MissionsManageTab({ kids, missions, pin, refetch }) {
       <button onClick={add} disabled={adding} style={{ ...primaryBtnStyle, background: "#E86A3A", marginTop: 10, opacity: adding ? 0.6 : 1 }}>
         {adding ? "新增中..." : "新增任務"}
       </button>
+    </div>
+  );
+}
+
+// ---------------- 定期收支（零用錢 / 固定支出 / 利息） ----------------
+function RecurringManageTab({ kids, allowanceRules, expenseRules, pin, refetch }) {
+  const kidMap = Object.fromEntries(kids.map((k) => [k.id, k]));
+
+  const [allowanceKidId, setAllowanceKidId] = useState(kids[0]?.id || "");
+  const [allowanceAmount, setAllowanceAmount] = useState("");
+  const [allowanceFrequency, setAllowanceFrequency] = useState("weekly");
+  const [allowanceDayOfWeek, setAllowanceDayOfWeek] = useState(0);
+  const [allowanceDayOfMonth, setAllowanceDayOfMonth] = useState("1");
+  const [addingAllowance, setAddingAllowance] = useState(false);
+  const [removingAllowanceId, setRemovingAllowanceId] = useState(null);
+
+  const [expenseKidId, setExpenseKidId] = useState(kids[0]?.id || "");
+  const [expenseName, setExpenseName] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseDayOfMonth, setExpenseDayOfMonth] = useState("1");
+  const [addingExpense, setAddingExpense] = useState(false);
+  const [removingExpenseId, setRemovingExpenseId] = useState(null);
+
+  const [rateInputs, setRateInputs] = useState({});
+  const [savingRateId, setSavingRateId] = useState(null);
+
+  const addAllowance = async () => {
+    const amt = Number(allowanceAmount);
+    if (!allowanceKidId || !amt || amt <= 0) return;
+    setAddingAllowance(true);
+    try {
+      await addAllowanceRule(
+        allowanceKidId,
+        amt,
+        allowanceFrequency,
+        allowanceFrequency === "weekly" ? Number(allowanceDayOfWeek) : null,
+        allowanceFrequency === "monthly" ? Number(allowanceDayOfMonth) : null,
+        pin
+      );
+      setAllowanceAmount("");
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setAddingAllowance(false);
+    }
+  };
+
+  const removeAllowance = async (id) => {
+    setRemovingAllowanceId(id);
+    try {
+      await deleteAllowanceRule(id, pin);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setRemovingAllowanceId(null);
+    }
+  };
+
+  const addExpense = async () => {
+    const amt = Number(expenseAmount);
+    if (!expenseKidId || !expenseName.trim() || !amt || amt <= 0) return;
+    setAddingExpense(true);
+    try {
+      await addExpenseRule(expenseKidId, expenseName.trim(), amt, Number(expenseDayOfMonth), pin);
+      setExpenseName("");
+      setExpenseAmount("");
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setAddingExpense(false);
+    }
+  };
+
+  const removeExpense = async (id) => {
+    setRemovingExpenseId(id);
+    try {
+      await deleteExpenseRule(id, pin);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setRemovingExpenseId(null);
+    }
+  };
+
+  const saveRate = async (kid) => {
+    const pct = Number(rateInputs[kid.id] ?? kid.interest_rate * 100);
+    if (Number.isNaN(pct) || pct < 0) return;
+    setSavingRateId(kid.id);
+    try {
+      await setInterestRate(kid.id, pct / 100, pin);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingRateId(null);
+    }
+  };
+
+  return (
+    <div>
+      <label style={labelStyle}>💸 固定零用錢</label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+        {allowanceRules.map((r) => (
+          <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
+            <span style={{ fontSize: 20 }}>{kidMap[r.kid_id]?.avatar}</span>
+            <span style={{ flex: 1, fontSize: 13 }}>
+              {r.frequency === "weekly" ? `每${WEEKDAY_LABELS[r.day_of_week]}` : `每月 ${r.day_of_month} 號`}
+            </span>
+            <span style={{ color: "#3DB88A", fontWeight: 800 }}>+{r.amount}</span>
+            <button
+              onClick={() => removeAllowance(r.id)}
+              disabled={removingAllowanceId === r.id}
+              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingAllowanceId === r.id ? 0.5 : 1 }}
+            >
+              <X size={14} color="#B4A392" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {kids.map((k) => (
+          <button
+            key={k.id}
+            onClick={() => setAllowanceKidId(k.id)}
+            style={{
+              flex: 1,
+              padding: "8px 6px",
+              borderRadius: 10,
+              border: "none",
+              fontWeight: 700,
+              fontSize: 13,
+              background: allowanceKidId === k.id ? "#5A4632" : "#F1E7DC",
+              color: allowanceKidId === k.id ? "#fff" : "#8A7457",
+            }}
+          >
+            {k.avatar} {k.name}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {[
+          { id: "weekly", label: "每週" },
+          { id: "monthly", label: "每月" },
+        ].map((opt) => (
+          <button
+            key={opt.id}
+            onClick={() => setAllowanceFrequency(opt.id)}
+            style={{
+              flex: 1,
+              padding: "8px 6px",
+              borderRadius: 10,
+              border: "none",
+              fontWeight: 700,
+              fontSize: 13,
+              background: allowanceFrequency === opt.id ? "#5A4632" : "#F1E7DC",
+              color: allowanceFrequency === opt.id ? "#fff" : "#8A7457",
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        {allowanceFrequency === "weekly" ? (
+          <select style={{ ...inputStyle, flex: 1 }} value={allowanceDayOfWeek} onChange={(e) => setAllowanceDayOfWeek(e.target.value)}>
+            {WEEKDAY_LABELS.map((label, i) => (
+              <option key={i} value={i}>
+                每{label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            style={{ ...inputStyle, flex: 1 }}
+            type="number"
+            min={1}
+            max={31}
+            placeholder="每月幾號（1-31）"
+            value={allowanceDayOfMonth}
+            onChange={(e) => setAllowanceDayOfMonth(e.target.value)}
+          />
+        )}
+        <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="金額" value={allowanceAmount} onChange={(e) => setAllowanceAmount(e.target.value)} />
+      </div>
+      <button onClick={addAllowance} disabled={addingAllowance} style={{ ...primaryBtnStyle, background: "#3DB88A", opacity: addingAllowance ? 0.6 : 1 }}>
+        {addingAllowance ? "新增中..." : "新增零用錢規則"}
+      </button>
+
+      <div style={{ height: 1, background: "#F1E7DC", margin: "20px 0" }} />
+
+      <label style={labelStyle}>🏠 固定支出</label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+        {expenseRules.map((r) => (
+          <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
+            <span style={{ fontSize: 20 }}>{kidMap[r.kid_id]?.avatar}</span>
+            <span style={{ flex: 1 }}>{r.name}</span>
+            <span style={{ fontSize: 13, color: "#B4A392" }}>每月 {r.day_of_month} 號</span>
+            <span style={{ color: "#E85D5D", fontWeight: 800 }}>-{r.amount}</span>
+            <button
+              onClick={() => removeExpense(r.id)}
+              disabled={removingExpenseId === r.id}
+              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingExpenseId === r.id ? 0.5 : 1 }}
+            >
+              <X size={14} color="#B4A392" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {kids.map((k) => (
+          <button
+            key={k.id}
+            onClick={() => setExpenseKidId(k.id)}
+            style={{
+              flex: 1,
+              padding: "8px 6px",
+              borderRadius: 10,
+              border: "none",
+              fontWeight: 700,
+              fontSize: 13,
+              background: expenseKidId === k.id ? "#5A4632" : "#F1E7DC",
+              color: expenseKidId === k.id ? "#fff" : "#8A7457",
+            }}
+          >
+            {k.avatar} {k.name}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        <input style={{ ...inputStyle, flex: 1 }} placeholder="支出名稱（例如：手機費）" value={expenseName} onChange={(e) => setExpenseName(e.target.value)} />
+        <input style={{ ...inputStyle, width: 90 }} type="number" placeholder="金額" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} />
+      </div>
+      <input
+        style={{ ...inputStyle, marginBottom: 8 }}
+        type="number"
+        min={1}
+        max={31}
+        placeholder="每月幾號扣款（1-31）"
+        value={expenseDayOfMonth}
+        onChange={(e) => setExpenseDayOfMonth(e.target.value)}
+      />
+      <button onClick={addExpense} disabled={addingExpense} style={{ ...primaryBtnStyle, background: "#E85D5D", opacity: addingExpense ? 0.6 : 1 }}>
+        {addingExpense ? "新增中..." : "新增固定支出"}
+      </button>
+
+      <div style={{ height: 1, background: "#F1E7DC", margin: "20px 0" }} />
+
+      <label style={labelStyle}>📈 存錢利息（每月 1 號依當時餘額結算）</label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {kids.map((k) => (
+          <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12 }}>
+            <span style={{ fontSize: 20 }}>{k.avatar}</span>
+            <span style={{ flex: 1, fontWeight: 700 }}>{k.name}</span>
+            <input
+              style={{ ...inputStyle, width: 70 }}
+              type="number"
+              step="0.1"
+              placeholder="%"
+              value={rateInputs[k.id] ?? k.interest_rate * 100}
+              onChange={(e) => setRateInputs({ ...rateInputs, [k.id]: e.target.value })}
+            />
+            <span style={{ fontSize: 13, color: "#B4A392" }}>%</span>
+            <button
+              onClick={() => saveRate(k)}
+              disabled={savingRateId === k.id}
+              style={{ border: "none", borderRadius: 10, padding: "8px 14px", background: "#94795F", color: "#fff", fontWeight: 700, fontSize: 12.5, opacity: savingRateId === k.id ? 0.6 : 1 }}
+            >
+              {savingRateId === k.id ? "儲存中..." : "儲存"}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
