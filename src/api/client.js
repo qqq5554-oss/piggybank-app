@@ -60,3 +60,12 @@ export const deleteMission = (missionId, pin) => post("delete_mission", { missio
 export const awardPoints = (kidId, delta, reason, pin) => post("award_points", { kidId, delta, reason }, pin);
 export const addViolation = (kidId, description, moneyDelta, pointsDelta, privilegeNote, pin) =>
   post("add_violation", { kidId, description, moneyDelta, pointsDelta, privilegeNote }, pin);
+
+// ------- 固定零用錢 / 固定支出 / 利息 -------
+export const addAllowanceRule = (kidId, amount, frequency, dayOfWeek, dayOfMonth, pin) =>
+  post("add_allowance_rule", { kidId, amount, frequency, dayOfWeek, dayOfMonth }, pin);
+export const deleteAllowanceRule = (ruleId, pin) => post("delete_allowance_rule", { ruleId }, pin);
+export const addExpenseRule = (kidId, name, amount, dayOfMonth, pin) =>
+  post("add_expense_rule", { kidId, name, amount, dayOfMonth }, pin);
+export const deleteExpenseRule = (ruleId, pin) => post("delete_expense_rule", { ruleId }, pin);
+export const setInterestRate = (kidId, rate, pin) => post("set_interest_rate", { kidId, rate }, pin);

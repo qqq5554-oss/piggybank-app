@@ -20,6 +20,11 @@ const PARENT_ACTIONS = new Set([
   "delete_mission",
   "award_points",
   "add_violation",
+  "add_allowance_rule",
+  "delete_allowance_rule",
+  "add_expense_rule",
+  "delete_expense_rule",
+  "set_interest_rate",
 ]);
 
 async function checkPin(pin) {
@@ -233,6 +238,35 @@ export default async function handler(req, res) {
           queries.push(sql`update kids set character_points = character_points + ${pointsDelta} where id = ${kidId}`);
         }
         await sql.transaction(queries);
+        break;
+      }
+      case "add_allowance_rule": {
+        const { kidId, amount, frequency, dayOfWeek = null, dayOfMonth = null } = payload;
+        await sql`
+          insert into allowance_rules (kid_id, amount, frequency, day_of_week, day_of_month)
+          values (${kidId}, ${amount}, ${frequency}, ${dayOfWeek}, ${dayOfMonth})
+        `;
+        break;
+      }
+      case "delete_allowance_rule": {
+        await sql`delete from allowance_rules where id = ${payload.ruleId}`;
+        break;
+      }
+      case "add_expense_rule": {
+        const { kidId, name, amount, dayOfMonth } = payload;
+        await sql`
+          insert into expense_rules (kid_id, name, amount, day_of_month)
+          values (${kidId}, ${name}, ${amount}, ${dayOfMonth})
+        `;
+        break;
+      }
+      case "delete_expense_rule": {
+        await sql`delete from expense_rules where id = ${payload.ruleId}`;
+        break;
+      }
+      case "set_interest_rate": {
+        const { kidId, rate } = payload;
+        await sql`update kids set interest_rate = ${rate} where id = ${kidId}`;
         break;
       }
       default:

@@ -124,3 +124,43 @@ select * from (values
   ('刷牙', 1)
 ) as seed(name, points)
 where not exists (select 1 from responsibilities);
+
+-- ============================================================
+-- Phase 2 追加（固定零用錢 / 固定支出 / 存錢利息）
+-- ⚠️ 同樣全部用 IF NOT EXISTS，可以直接在既有資料庫上執行
+-- ============================================================
+
+alter table kids add column if not exists interest_rate numeric not null default 0;
+
+-- 固定零用錢規則：每週或每月固定入帳
+create table if not exists allowance_rules (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  amount numeric not null,
+  frequency text not null check (frequency in ('weekly', 'monthly')),
+  day_of_week int,   -- 0=週日 ... 6=週六（frequency = weekly 時使用）
+  day_of_month int,  -- 1-31（frequency = monthly 時使用，超過當月天數會用月底那天）
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- 固定支出規則：每月固定扣款
+create table if not exists expense_rules (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  name text not null,
+  amount numeric not null,
+  day_of_month int not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- 排程執行紀錄：避免 cron 同一天重複觸發同一筆規則
+create table if not exists scheduled_run_logs (
+  id uuid primary key default gen_random_uuid(),
+  rule_type text not null,
+  rule_id uuid not null,
+  run_date date not null,
+  created_at timestamptz not null default now(),
+  unique (rule_type, rule_id, run_date)
+);

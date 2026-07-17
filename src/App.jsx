@@ -9,7 +9,18 @@ import ParentDashboard from "./components/ParentDashboard";
 // home（選小孩）→ kidDetail（小孩自己的帳戶）
 // home → parentPinEntry（輸入密碼）→ parentDashboard（家長後台）
 export default function App() {
-  const { kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, loading, refetch } = useKidsData();
+  const {
+    kids,
+    chores,
+    pendingChores,
+    responsibilities,
+    responsibilityLogs,
+    missions,
+    allowanceRules,
+    expenseRules,
+    loading,
+    refetch,
+  } = useKidsData();
   const [screen, setScreen] = useState("home");
   const [activeKidId, setActiveKidId] = useState(null);
   const [parentPin, setParentPin] = useState(null); // 驗證成功的 PIN，家長後台的寫入操作要帶著它
@@ -67,6 +78,8 @@ export default function App() {
           pendingChores={pendingChores}
           responsibilities={responsibilities}
           missions={missions}
+          allowanceRules={allowanceRules}
+          expenseRules={expenseRules}
           pin={parentPin}
           onBack={() => {
             setParentPin(null);

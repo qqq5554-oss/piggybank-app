@@ -13,6 +13,8 @@ export function useKidsData() {
   const [responsibilities, setResponsibilities] = useState([]);
   const [responsibilityLogs, setResponsibilityLogs] = useState([]);
   const [missions, setMissions] = useState([]);
+  const [allowanceRules, setAllowanceRules] = useState([]);
+  const [expenseRules, setExpenseRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const timerRef = useRef(null);
 
@@ -25,6 +27,8 @@ export function useKidsData() {
       setResponsibilities(data.responsibilities);
       setResponsibilityLogs(data.responsibilityLogs);
       setMissions(data.missions);
+      setAllowanceRules(data.allowanceRules);
+      setExpenseRules(data.expenseRules);
     } catch (err) {
       console.error("讀取資料失敗", err);
     } finally {
@@ -38,5 +42,16 @@ export function useKidsData() {
     return () => clearInterval(timerRef.current);
   }, [fetchAll]);
 
-  return { kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, loading, refetch: fetchAll };
+  return {
+    kids,
+    chores,
+    pendingChores,
+    responsibilities,
+    responsibilityLogs,
+    missions,
+    allowanceRules,
+    expenseRules,
+    loading,
+    refetch: fetchAll,
+  };
 }
