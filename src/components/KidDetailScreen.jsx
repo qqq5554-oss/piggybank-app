@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ChevronLeft } from "lucide-react";
 import {
   fetchTransactions,
-  requestChore as apiRequestChore,
+  completeChoreDirect as apiCompleteChoreDirect,
   setGoal as apiSetGoal,
   toggleResponsibility as apiToggleResponsibility,
   requestMissionComplete as apiRequestMissionComplete,
@@ -13,7 +13,7 @@ import TransactionList from "./TransactionList";
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
-export default function KidDetailScreen({ kid, chores, pendingChores, responsibilities, responsibilityLogs, missions, onBack, refetch }) {
+export default function KidDetailScreen({ kid, chores, responsibilities, responsibilityLogs, missions, onBack, refetch }) {
   const [transactions, setTransactions] = useState([]);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalName, setGoalName] = useState(kid.goal_name || "");
@@ -35,10 +35,12 @@ export default function KidDetailScreen({ kid, chores, pendingChores, responsibi
     }
   }, [kid.goal_name, kid.goal_amount, editingGoal]);
 
-  const requestChore = async (chore) => {
+  const completeChore = async (chore) => {
+    const ok = window.confirm(`「${chore.name}」完成了嗎？\n將記錄 +${currency(chore.amount)}`);
+    if (!ok) return;
     setSubmittingChoreId(chore.id);
     try {
-      await apiRequestChore(kid.id, chore);
+      await apiCompleteChoreDirect(kid.id, chore);
       await refetch();
     } catch (err) {
       console.error(err);
@@ -216,18 +218,21 @@ export default function KidDetailScreen({ kid, chores, pendingChores, responsibi
                     disabled={submitting || isDone}
                     onClick={() => toggleResponsibility(r)}
                     style={{
-                      border: `2px solid ${isDone ? "#E3DCD1" : "#EEE4D8"}`,
+                      border: `2px solid ${isDone ? "#D8D0C5" : "#EEE4D8"}`,
                       borderRadius: 14,
                       padding: "12px 14px",
-                      background: isDone ? "#EDE7DD" : "#fff",
+                      background: isDone ? "#E9E4DB" : "#fff",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      opacity: submitting ? 0.5 : isDone ? 0.6 : 1,
+                      opacity: submitting ? 0.5 : 1,
                     }}
                   >
-                    <span style={{ fontWeight: 700, color: isDone ? "#A79C8C" : "inherit" }}>{isDone ? "✅ " : "⬜ "}{r.name}</span>
-                    <span style={{ fontSize: 12, color: "#B4A392" }}>+{r.points}⭐</span>
+                    <span style={{ fontWeight: 700, color: isDone ? "#9C917F" : "inherit", textDecoration: isDone ? "line-through" : "none" }}>
+                      {isDone ? "✅ " : "⬜ "}
+                      {r.name}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#B4A392", textDecoration: isDone ? "line-through" : "none" }}>+{r.points}⭐</span>
                   </button>
                 );
               })}
@@ -276,18 +281,6 @@ export default function KidDetailScreen({ kid, chores, pendingChores, responsibi
           </div>
         )}
 
-        {pendingChores.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>⏳ 等待爸媽審核</div>
-            {pendingChores.map((p) => (
-              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", background: "#fff", padding: "10px 14px", borderRadius: 12, marginBottom: 6 }}>
-                <span>{p.chore_name}</span>
-                <span style={{ fontWeight: 800, color: theme.accentDark }}>+{p.amount}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
         <div style={{ fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>做家事賺錢</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
           {chores.map((c) => {
@@ -296,7 +289,7 @@ export default function KidDetailScreen({ kid, chores, pendingChores, responsibi
               <button
                 key={c.id}
                 disabled={submitting}
-                onClick={() => requestChore(c)}
+                onClick={() => completeChore(c)}
                 style={{
                   border: `2px solid ${theme.accent}`,
                   borderRadius: 16,
@@ -308,7 +301,7 @@ export default function KidDetailScreen({ kid, chores, pendingChores, responsibi
                   opacity: submitting ? 0.5 : 1,
                 }}
               >
-                <span style={{ fontWeight: 800 }}>{submitting ? "送出中..." : c.name}</span>
+                <span style={{ fontWeight: 800 }}>{submitting ? "記錄中..." : c.name}</span>
                 <span style={{ fontWeight: 800, color: theme.accentDark }}>+{c.amount}</span>
               </button>
             );

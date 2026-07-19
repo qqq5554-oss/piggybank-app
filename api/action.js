@@ -78,6 +78,19 @@ export default async function handler(req, res) {
         `;
         break;
       }
+      case "complete_chore_direct": {
+        // 家長直接操作 App 幫小孩記錄家事完成，跳過「送出待審核」，
+        // 點擊時前端已經跳出確認視窗，這裡直接入帳。
+        const { kidId, choreName, amount } = payload;
+        await sql.transaction([
+          sql`
+            insert into transactions (kid_id, type, amount, note)
+            values (${kidId}, 'income', ${amount}, ${"家事：" + choreName})
+          `,
+          sql`update kids set balance = balance + ${amount} where id = ${kidId}`,
+        ]);
+        break;
+      }
       case "set_goal": {
         const { kidId, goalName, goalAmount } = payload;
         await sql`

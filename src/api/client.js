@@ -56,6 +56,9 @@ export const changeSitePin = (newSitePin, parentPin) => post("change_site_pin", 
 export const requestChore = (kidId, chore) =>
   post("request_chore", { kidId, choreId: chore.id, choreName: chore.name, amount: chore.amount });
 
+export const completeChoreDirect = (kidId, chore) =>
+  post("complete_chore_direct", { kidId, choreName: chore.name, amount: chore.amount });
+
 export const setGoal = (kidId, goal) =>
   post("set_goal", { kidId, goalName: goal?.name || null, goalAmount: goal?.amount || null });
 
