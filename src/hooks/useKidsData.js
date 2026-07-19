@@ -18,6 +18,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
   const [missions, setMissions] = useState([]);
   const [allowanceRules, setAllowanceRules] = useState([]);
   const [expenseRules, setExpenseRules] = useState([]);
+  const [today, setToday] = useState(null); // 資料庫伺服器認定的「今天」，不是瀏覽器自己算的
   const [loading, setLoading] = useState(true);
   const timerRef = useRef(null);
   const requestIdRef = useRef(0); // 用來丟棄比較舊、比較晚回來的輪詢結果，避免蓋掉剛做的操作
@@ -35,6 +36,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
       setMissions(data.missions);
       setAllowanceRules(data.allowanceRules);
       setExpenseRules(data.expenseRules);
+      setToday(data.today);
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
       if (err.message === SITE_PIN_INVALID) {
@@ -63,6 +65,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
     missions,
     allowanceRules,
     expenseRules,
+    today,
     loading,
     refetch: fetchAll,
   };

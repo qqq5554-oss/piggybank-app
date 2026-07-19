@@ -26,6 +26,7 @@ export default function App() {
     missions,
     allowanceRules,
     expenseRules,
+    today,
     loading,
     refetch,
   } = useKidsData(siteUnlocked, handleUnauthorized);
@@ -67,6 +68,7 @@ export default function App() {
           responsibilities={responsibilities}
           responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
           missions={missions.filter((m) => m.kid_id === activeKid.id)}
+          today={today}
           onBack={() => setScreen("home")}
           refetch={refetch}
         />

@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "網站密碼錯誤" });
     }
 
-    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules] = await Promise.all([
+    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, todayRows] = await Promise.all([
       sql`select * from kids order by created_at`,
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
@@ -26,9 +26,13 @@ export default async function handler(req, res) {
       sql`select * from missions order by created_at`,
       sql`select * from allowance_rules order by created_at`,
       sql`select * from expense_rules order by created_at`,
+      sql`select current_date as today`,
     ]);
+    // 「今天」以資料庫伺服器的 current_date 為準，不要用瀏覽器自己算的日期，
+    // 避免裝置時區跟資料庫時區對不起來，導致今天打的卡永遠比對不到。
+    const today = todayRows[0].today;
 
-    res.status(200).json({ kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules });
+    res.status(200).json({ kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, today });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "資料讀取失敗" });

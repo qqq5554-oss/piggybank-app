@@ -11,9 +11,7 @@ import { currency, themeOf, computeStreak } from "../utils/format";
 import SavingsMeter from "./SavingsMeter";
 import TransactionList from "./TransactionList";
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
-
-export default function KidDetailScreen({ kid, chores, responsibilities, responsibilityLogs, missions, onBack, refetch }) {
+export default function KidDetailScreen({ kid, chores, responsibilities, responsibilityLogs, missions, today, onBack, refetch }) {
   const [transactions, setTransactions] = useState([]);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalName, setGoalName] = useState(kid.goal_name || "");
@@ -79,9 +77,8 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
 
   const goalPct = kid.goal_amount > 0 ? Math.min(100, Math.round((kid.balance / kid.goal_amount) * 100)) : 0;
 
-  const done = todayKey();
-  const doneTodayIds = new Set(responsibilityLogs.filter((l) => l.log_date === done).map((l) => l.responsibility_id));
-  const streak = computeStreak(responsibilityLogs, responsibilities.length);
+  const doneTodayIds = new Set(responsibilityLogs.filter((l) => l.log_date === today).map((l) => l.responsibility_id));
+  const streak = computeStreak(responsibilityLogs, responsibilities.length, today);
 
   const toggleResponsibility = async (resp) => {
     setSubmittingRespId(resp.id);
