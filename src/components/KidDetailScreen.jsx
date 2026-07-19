@@ -213,7 +213,7 @@ export default function KidDetailScreen({ kid, chores, pendingChores, responsibi
                 return (
                   <button
                     key={r.id}
-                    disabled={submitting}
+                    disabled={submitting || isDone}
                     onClick={() => toggleResponsibility(r)}
                     style={{
                       border: `2px solid ${isDone ? "#E3DCD1" : "#EEE4D8"}`,
