@@ -216,17 +216,17 @@ export default function KidDetailScreen({ kid, chores, pendingChores, responsibi
                     disabled={submitting}
                     onClick={() => toggleResponsibility(r)}
                     style={{
-                      border: `2px solid ${isDone ? theme.accent : "#EEE4D8"}`,
+                      border: `2px solid ${isDone ? "#E3DCD1" : "#EEE4D8"}`,
                       borderRadius: 14,
                       padding: "12px 14px",
-                      background: isDone ? theme.bg : "#fff",
+                      background: isDone ? "#EDE7DD" : "#fff",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      opacity: submitting ? 0.5 : 1,
+                      opacity: submitting ? 0.5 : isDone ? 0.6 : 1,
                     }}
                   >
-                    <span style={{ fontWeight: 700 }}>{isDone ? "✅ " : "⬜ "}{r.name}</span>
+                    <span style={{ fontWeight: 700, color: isDone ? "#A79C8C" : "inherit" }}>{isDone ? "✅ " : "⬜ "}{r.name}</span>
                     <span style={{ fontSize: 12, color: "#B4A392" }}>+{r.points}⭐</span>
                   </button>
                 );
