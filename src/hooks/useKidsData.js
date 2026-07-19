@@ -20,10 +20,13 @@ export function useKidsData(enabled = true, onUnauthorized) {
   const [expenseRules, setExpenseRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const timerRef = useRef(null);
+  const requestIdRef = useRef(0); // 用來丟棄比較舊、比較晚回來的輪詢結果，避免蓋掉剛做的操作
 
   const fetchAll = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     try {
       const data = await fetchAllData();
+      if (requestId !== requestIdRef.current) return; // 這個回應比後來發出的請求還舊，丟掉
       setKids(data.kids);
       setChores(data.chores);
       setPendingChores(data.pendingChores);
@@ -33,13 +36,14 @@ export function useKidsData(enabled = true, onUnauthorized) {
       setAllowanceRules(data.allowanceRules);
       setExpenseRules(data.expenseRules);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       if (err.message === SITE_PIN_INVALID) {
         onUnauthorized?.();
         return;
       }
       console.error("讀取資料失敗", err);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, [onUnauthorized]);
 

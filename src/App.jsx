@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useKidsData } from "./hooks/useKidsData";
 import { getSitePin, clearSitePin } from "./api/client";
 import HomeScreen from "./components/HomeScreen";
@@ -12,10 +12,10 @@ import SiteAccessScreen from "./components/SiteAccessScreen";
 // home → parentPinEntry（輸入密碼）→ parentDashboard（家長後台）
 export default function App() {
   const [siteUnlocked, setSiteUnlocked] = useState(!!getSitePin());
-  const handleUnauthorized = () => {
+  const handleUnauthorized = useCallback(() => {
     clearSitePin();
     setSiteUnlocked(false);
-  };
+  }, []);
 
   const {
     kids,
