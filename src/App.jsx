@@ -1,14 +1,22 @@
 import React, { useState } from "react";
 import { useKidsData } from "./hooks/useKidsData";
+import { getSitePin, clearSitePin } from "./api/client";
 import HomeScreen from "./components/HomeScreen";
 import KidDetailScreen from "./components/KidDetailScreen";
 import ParentPinScreen from "./components/ParentPinScreen";
 import ParentDashboard from "./components/ParentDashboard";
+import SiteAccessScreen from "./components/SiteAccessScreen";
 
 // 畫面流程：
-// home（選小孩）→ kidDetail（小孩自己的帳戶）
+// siteLocked（進站密碼）→ home（選小孩）→ kidDetail（小孩自己的帳戶）
 // home → parentPinEntry（輸入密碼）→ parentDashboard（家長後台）
 export default function App() {
+  const [siteUnlocked, setSiteUnlocked] = useState(!!getSitePin());
+  const handleUnauthorized = () => {
+    clearSitePin();
+    setSiteUnlocked(false);
+  };
+
   const {
     kids,
     chores,
@@ -20,10 +28,14 @@ export default function App() {
     expenseRules,
     loading,
     refetch,
-  } = useKidsData();
+  } = useKidsData(siteUnlocked, handleUnauthorized);
   const [screen, setScreen] = useState("home");
   const [activeKidId, setActiveKidId] = useState(null);
   const [parentPin, setParentPin] = useState(null); // 驗證成功的 PIN，家長後台的寫入操作要帶著它
+
+  if (!siteUnlocked) {
+    return <SiteAccessScreen onSuccess={() => setSiteUnlocked(true)} />;
+  }
 
   if (loading) {
     return (

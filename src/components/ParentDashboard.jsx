@@ -28,6 +28,8 @@ import {
   updateMission,
   updateAllowanceRule,
   updateExpenseRule,
+  changeSitePin,
+  setSitePin,
 } from "../api/client";
 import { currency, formatDate, themeOf, KID_THEMES, AVATARS } from "../utils/format";
 import TransactionList from "./TransactionList";
@@ -1270,6 +1272,11 @@ function SettingsTab({ pin }) {
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [sitePin1, setSitePin1] = useState("");
+  const [sitePin2, setSitePin2] = useState("");
+  const [siteMsg, setSiteMsg] = useState("");
+  const [savingSite, setSavingSite] = useState(false);
+
   const doChangePin = async () => {
     if (pin1.length !== 4 || !/^\d{4}$/.test(pin1)) return setMsg("密碼需為 4 碼數字");
     if (pin1 !== pin2) return setMsg("兩次密碼不一致");
@@ -1286,6 +1293,23 @@ function SettingsTab({ pin }) {
     }
   };
 
+  const doChangeSitePin = async () => {
+    if (sitePin1.length !== 4 || !/^\d{4}$/.test(sitePin1)) return setSiteMsg("密碼需為 4 碼數字");
+    if (sitePin1 !== sitePin2) return setSiteMsg("兩次密碼不一致");
+    setSavingSite(true);
+    try {
+      await changeSitePin(sitePin1, pin);
+      setSitePin(sitePin1); // 更新本機儲存，避免自己被登出
+      setSitePin1("");
+      setSitePin2("");
+      setSiteMsg("密碼已更新 ✅（其他裝置下次開啟要用新密碼）");
+    } catch (e) {
+      setSiteMsg(e.message);
+    } finally {
+      setSavingSite(false);
+    }
+  };
+
   return (
     <div>
       <label style={labelStyle}>修改家長密碼</label>
@@ -1295,6 +1319,16 @@ function SettingsTab({ pin }) {
         {saving ? "更新中..." : "更新密碼"}
       </button>
       {msg && <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#8A6E3D" }}>{msg}</div>}
+
+      <div style={{ height: 1, background: "#F1E7DC", margin: "20px 0" }} />
+
+      <label style={labelStyle}>🔒 修改進站密碼（整個網站的門鎖，跟家長密碼分開）</label>
+      <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="新密碼（4碼數字）" maxLength={4} value={sitePin1} onChange={(e) => setSitePin1(e.target.value.replace(/\D/g, ""))} />
+      <input style={inputStyle} placeholder="再輸入一次" maxLength={4} value={sitePin2} onChange={(e) => setSitePin2(e.target.value.replace(/\D/g, ""))} />
+      <button onClick={doChangeSitePin} disabled={savingSite} style={{ ...primaryBtnStyle, background: "#5A4632", marginTop: 10, opacity: savingSite ? 0.6 : 1 }}>
+        {savingSite ? "更新中..." : "更新進站密碼"}
+      </button>
+      {siteMsg && <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#8A6E3D" }}>{siteMsg}</div>}
     </div>
   );
 }

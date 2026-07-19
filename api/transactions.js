@@ -7,10 +7,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { kidId } = req.query;
+  const { kidId, sitePin } = req.query;
   if (!kidId) return res.status(400).json({ error: "缺少 kidId" });
 
   try {
+    const siteRows = await sql`select value from app_settings where key = 'site_pin'`;
+    if (siteRows[0]?.value !== sitePin) {
+      return res.status(401).json({ error: "網站密碼錯誤" });
+    }
+
     const transactions = await sql`
       select * from transactions
       where kid_id = ${kidId}

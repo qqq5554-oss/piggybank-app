@@ -1,29 +1,57 @@
 // 前端只透過這幾支函式跟後端溝通，完全不碰資料庫連線細節。
 // 家長密碼在需要時由呼叫端傳入，送到後端驗證，不在前端比對。
 
+// 全站密碼：整個網站的存取密碼，跟家長 PIN 分開。驗證成功後
+// 存在瀏覽器 localStorage，同裝置之後不用每次重新輸入；每個
+// API 呼叫都會自動帶上，後端沒收到正確的值一律拒絕。
+const SITE_PIN_KEY = "piggybank_site_pin";
+export const getSitePin = () => localStorage.getItem(SITE_PIN_KEY) || "";
+export const setSitePin = (pin) => localStorage.setItem(SITE_PIN_KEY, pin);
+export const clearSitePin = () => localStorage.removeItem(SITE_PIN_KEY);
+
+export const SITE_PIN_INVALID = "SITE_PIN_INVALID";
+const UNAUTHORIZED = SITE_PIN_INVALID;
+
 async function post(action, payload = {}, pin = null) {
   const res = await fetch("/api/action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, pin, payload }),
+    body: JSON.stringify({ action, pin, sitePin: getSitePin(), payload }),
   });
   const data = await res.json();
+  if (res.status === 401 && data.error === "網站密碼錯誤") throw new Error(UNAUTHORIZED);
   if (!res.ok) throw new Error(data.error || "操作失敗");
   return data;
 }
 
 export async function fetchAllData() {
-  const res = await fetch("/api/data");
+  const res = await fetch(`/api/data?sitePin=${encodeURIComponent(getSitePin())}`);
+  if (res.status === 401) throw new Error(UNAUTHORIZED);
   if (!res.ok) throw new Error("資料讀取失敗");
   return res.json(); // { kids, chores, pendingChores }
 }
 
 export async function fetchTransactions(kidId) {
-  const res = await fetch(`/api/transactions?kidId=${kidId}`);
+  const res = await fetch(`/api/transactions?kidId=${kidId}&sitePin=${encodeURIComponent(getSitePin())}`);
+  if (res.status === 401) throw new Error(UNAUTHORIZED);
   if (!res.ok) throw new Error("資料讀取失敗");
   const data = await res.json();
   return data.transactions;
 }
+
+// 測試候選密碼（登入畫面用，不是從 localStorage 讀，是使用者剛打的那組）
+export async function verifySitePin(candidatePin) {
+  const res = await fetch("/api/action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "verify_site_pin", sitePin: candidatePin, payload: {} }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "驗證失敗");
+  return data.ok;
+}
+
+export const changeSitePin = (newSitePin, parentPin) => post("change_site_pin", { newSitePin }, parentPin);
 
 export const requestChore = (kidId, chore) =>
   post("request_chore", { kidId, choreId: chore.id, choreName: chore.name, amount: chore.amount });

@@ -9,7 +9,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const { sitePin } = req.query;
+
   try {
+    const siteRows = await sql`select value from app_settings where key = 'site_pin'`;
+    if (siteRows[0]?.value !== sitePin) {
+      return res.status(401).json({ error: "網站密碼錯誤" });
+    }
+
     const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules] = await Promise.all([
       sql`select * from kids order by created_at`,
       sql`select * from chores order by created_at`,

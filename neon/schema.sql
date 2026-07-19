@@ -164,3 +164,13 @@ create table if not exists scheduled_run_logs (
   created_at timestamptz not null default now(),
   unique (rule_type, rule_id, run_date)
 );
+
+-- ============================================================
+-- Phase 3 追加（全站密碼）
+-- ⚠️ 同樣全部用 IF NOT EXISTS，可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 全站密碼：跟家長 PIN 分開，沒有這組密碼連 API 資料都拿不到。
+-- 預設 1234，上線後請務必到家長模式「設定」分頁修改。
+insert into app_settings (key, value) values ('site_pin', '1234')
+on conflict (key) do nothing;

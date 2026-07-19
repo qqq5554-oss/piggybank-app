@@ -30,6 +30,7 @@ const PARENT_ACTIONS = new Set([
   "update_mission",
   "update_allowance_rule",
   "update_expense_rule",
+  "change_site_pin",
 ]);
 
 async function checkPin(pin) {
@@ -37,22 +38,37 @@ async function checkPin(pin) {
   return rows[0]?.value === pin;
 }
 
+async function checkSitePin(sitePin) {
+  const rows = await sql`select value from app_settings where key = 'site_pin'`;
+  return rows[0]?.value === sitePin;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { action, pin, payload = {} } = req.body || {};
+  const { action, pin, sitePin, payload = {} } = req.body || {};
   if (!action) return res.status(400).json({ error: "缺少 action" });
 
   try {
-    // 家長專屬操作先驗證密碼
+    // 全站密碼先驗證（verify_site_pin 本身除外，因為它就是在測試密碼對不對）
+    if (action !== "verify_site_pin") {
+      const siteOk = await checkSitePin(sitePin);
+      if (!siteOk) return res.status(401).json({ error: "網站密碼錯誤" });
+    }
+
+    // 家長專屬操作再驗證家長密碼
     if (PARENT_ACTIONS.has(action)) {
       const ok = await checkPin(pin);
       if (!ok) return res.status(401).json({ error: "密碼錯誤" });
     }
 
     switch (action) {
+      case "verify_site_pin": {
+        const ok = await checkSitePin(sitePin);
+        return res.status(200).json({ ok });
+      }
       // ------- 小孩可執行的操作（不需密碼） -------
       case "request_chore": {
         const { kidId, choreId, choreName, amount } = payload;
@@ -180,6 +196,11 @@ export default async function handler(req, res) {
       case "change_pin": {
         const { newPin } = payload;
         await sql`update app_settings set value = ${newPin} where key = 'parent_pin'`;
+        break;
+      }
+      case "change_site_pin": {
+        const { newSitePin } = payload;
+        await sql`update app_settings set value = ${newSitePin} where key = 'site_pin'`;
         break;
       }
       case "add_responsibility": {
