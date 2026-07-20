@@ -22,14 +22,16 @@ export default async function handler(req, res) {
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
       sql`select * from responsibilities order by created_at`,
-      sql`select * from responsibility_logs where log_date > current_date - interval '60 days' order by log_date`,
+      sql`select id, kid_id, responsibility_id, to_char(log_date, 'YYYY-MM-DD') as log_date, created_at from responsibility_logs where log_date > current_date - interval '60 days' order by log_date`,
       sql`select * from missions order by created_at`,
       sql`select * from allowance_rules order by created_at`,
       sql`select * from expense_rules order by created_at`,
-      sql`select current_date as today`,
+      sql`select to_char(current_date, 'YYYY-MM-DD') as today`,
     ]);
     // 「今天」以資料庫伺服器的 current_date 為準，不要用瀏覽器自己算的日期，
     // 避免裝置時區跟資料庫時區對不起來，導致今天打的卡永遠比對不到。
+    // 用 to_char 強制轉成純文字 YYYY-MM-DD，避免驅動程式把 date 型別
+    // 轉成帶時間的 Date 物件，跟 log_date 格式對不齊。
     const today = todayRows[0].today;
 
     res.status(200).json({ kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, today });

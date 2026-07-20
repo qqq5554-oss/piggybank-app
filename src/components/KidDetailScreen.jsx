@@ -77,7 +77,10 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
 
   const goalPct = kid.goal_amount > 0 ? Math.min(100, Math.round((kid.balance / kid.goal_amount) * 100)) : 0;
 
-  const doneTodayIds = new Set(responsibilityLogs.filter((l) => l.log_date === today).map((l) => l.responsibility_id));
+  const todayDatePart = today ? String(today).slice(0, 10) : null;
+  const doneTodayIds = new Set(
+    responsibilityLogs.filter((l) => String(l.log_date).slice(0, 10) === todayDatePart).map((l) => l.responsibility_id)
+  );
   const streak = computeStreak(responsibilityLogs, responsibilities.length, today);
 
   const toggleResponsibility = async (resp) => {

@@ -27,7 +27,12 @@ export function computeStreak(responsibilityLogs, totalCount, today) {
     counts[l.log_date] = (counts[l.log_date] || 0) + 1;
   });
   let streak = 0;
-  const d = new Date(`${today}T00:00:00Z`);
+  // today 只取前 10 碼（YYYY-MM-DD），就算後端不小心傳成完整 ISO
+  // 時間字串也不會拼出畸形字串讓 new Date() 變成 Invalid Date
+  // （Invalid Date 呼叫 toISOString() 會直接丟出例外，讓整個畫面白屏）。
+  const datePart = String(today).slice(0, 10);
+  const d = new Date(`${datePart}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return 0;
   for (;;) {
     const key = d.toISOString().slice(0, 10);
     if ((counts[key] || 0) >= totalCount) {
