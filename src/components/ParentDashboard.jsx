@@ -30,6 +30,9 @@ import {
   updateExpenseRule,
   changeSitePin,
   setSitePin,
+  addRewardItem,
+  deleteRewardItem,
+  updateRewardItem,
 } from "../api/client";
 import { currency, formatDate, themeOf, KID_THEMES, AVATARS } from "../utils/format";
 import TransactionList from "./TransactionList";
@@ -44,6 +47,7 @@ export default function ParentDashboard({
   missions,
   allowanceRules,
   expenseRules,
+  rewardItems,
   pin,
   onBack,
   refetch,
@@ -69,6 +73,7 @@ export default function ParentDashboard({
           { id: "chores", label: "家事清單" },
           { id: "responsibilities", label: "生活責任" },
           { id: "missions", label: "特殊任務" },
+          { id: "rewards", label: "兌換清單" },
           { id: "recurring", label: "定期收支" },
           { id: "settings", label: "設定" },
         ].map((t) => (
@@ -97,6 +102,7 @@ export default function ParentDashboard({
         {tab === "chores" && <ChoresManageTab chores={chores} pin={pin} refetch={refetch} />}
         {tab === "responsibilities" && <ResponsibilitiesManageTab responsibilities={responsibilities} pin={pin} refetch={refetch} />}
         {tab === "missions" && <MissionsManageTab kids={kids} missions={missions} pin={pin} refetch={refetch} />}
+        {tab === "rewards" && <RewardsManageTab rewardItems={rewardItems} pin={pin} refetch={refetch} />}
         {tab === "recurring" && (
           <RecurringManageTab kids={kids} allowanceRules={allowanceRules} expenseRules={expenseRules} pin={pin} refetch={refetch} />
         )}
@@ -675,6 +681,116 @@ function ResponsibilitiesManageTab({ responsibilities, pin, refetch }) {
       <div style={{ display: "flex", gap: 8 }}>
         <input style={{ ...inputStyle, flex: 1 }} placeholder="項目名稱" value={name} onChange={(e) => setName(e.target.value)} />
         <input style={{ ...inputStyle, width: 70 }} type="number" placeholder="⭐" value={points} onChange={(e) => setPoints(e.target.value)} />
+      </div>
+      <button onClick={add} disabled={adding} style={{ ...primaryBtnStyle, background: "#94795F", marginTop: 10, opacity: adding ? 0.6 : 1 }}>
+        {adding ? "新增中..." : "新增"}
+      </button>
+    </div>
+  );
+}
+
+// ---------------- 責任值兌換清單管理 ----------------
+function RewardsManageTab({ rewardItems, pin, refetch }) {
+  const [name, setName] = useState("");
+  const [pointsCost, setPointsCost] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editPointsCost, setEditPointsCost] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const add = async () => {
+    if (!name.trim() || !Number(pointsCost) || Number(pointsCost) <= 0) return;
+    setAdding(true);
+    try {
+      await addRewardItem(name.trim(), Number(pointsCost), pin);
+      setName("");
+      setPointsCost("");
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const remove = async (id) => {
+    setRemovingId(id);
+    try {
+      await deleteRewardItem(id, pin);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  const startEdit = (r) => {
+    setEditingId(r.id);
+    setEditName(r.name);
+    setEditPointsCost(String(r.points_cost));
+  };
+
+  const saveEdit = async () => {
+    if (!editName.trim() || !Number(editPointsCost) || Number(editPointsCost) <= 0) return;
+    setSavingEdit(true);
+    try {
+      await updateRewardItem(editingId, editName.trim(), Number(editPointsCost), pin);
+      setEditingId(null);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: "#B4A392", marginBottom: 10 }}>
+        小孩點擊帳戶頁面的「⭐ 責任值」就會看到這份清單，可以直接用責任值兌換。
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+        {rewardItems.map((r) =>
+          editingId === r.id ? (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12 }}>
+              <input style={{ ...inputStyle, flex: 1 }} value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <input style={{ ...inputStyle, width: 60 }} type="number" value={editPointsCost} onChange={(e) => setEditPointsCost(e.target.value)} />
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit}
+                style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: "#3DB88A", opacity: savingEdit ? 0.5 : 1 }}
+              >
+                <Check size={14} color="#fff" />
+              </button>
+              <button onClick={() => setEditingId(null)} disabled={savingEdit} style={{ width: 26, height: 26, borderRadius: "50%", border: "none", background: "#F7F1E9" }}>
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          ) : (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12, fontWeight: 700 }}>
+              <span style={{ flex: 1 }}>{r.name}</span>
+              <span style={{ color: "#94795F", fontWeight: 800 }}>{r.points_cost}⭐</span>
+              <button onClick={() => startEdit(r)} style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F1E7DC" }}>
+                <Pencil size={12} color="#8A7457" />
+              </button>
+              <button
+                onClick={() => remove(r.id)}
+                disabled={removingId === r.id}
+                style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "#F7F1E9", opacity: removingId === r.id ? 0.5 : 1 }}
+              >
+                <X size={14} color="#B4A392" />
+              </button>
+            </div>
+          )
+        )}
+      </div>
+      <label style={labelStyle}>新增兌換項目</label>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input style={{ ...inputStyle, flex: 1 }} placeholder="項目名稱（例如：多玩 30 分鐘手機）" value={name} onChange={(e) => setName(e.target.value)} />
+        <input style={{ ...inputStyle, width: 70 }} type="number" placeholder="⭐" value={pointsCost} onChange={(e) => setPointsCost(e.target.value)} />
       </div>
       <button onClick={add} disabled={adding} style={{ ...primaryBtnStyle, background: "#94795F", marginTop: 10, opacity: adding ? 0.6 : 1 }}>
         {adding ? "新增中..." : "新增"}

@@ -174,3 +174,17 @@ create table if not exists scheduled_run_logs (
 -- 預設 1234，上線後請務必到家長模式「設定」分頁修改。
 insert into app_settings (key, value) values ('site_pin', '1234')
 on conflict (key) do nothing;
+
+-- ============================================================
+-- Phase 4 追加（責任值兌換清單）
+-- ⚠️ 同樣全部用 IF NOT EXISTS，可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 兌換項目：家長在設定裡自訂，小孩用責任值兌換
+create table if not exists reward_items (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  points_cost numeric not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);

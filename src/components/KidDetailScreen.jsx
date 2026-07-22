@@ -6,12 +6,13 @@ import {
   setGoal as apiSetGoal,
   toggleResponsibility as apiToggleResponsibility,
   requestMissionComplete as apiRequestMissionComplete,
+  redeemReward as apiRedeemReward,
 } from "../api/client";
 import { currency, themeOf, computeStreak } from "../utils/format";
 import SavingsMeter from "./SavingsMeter";
 import TransactionList from "./TransactionList";
 
-export default function KidDetailScreen({ kid, chores, responsibilities, responsibilityLogs, missions, today, onBack, refetch }) {
+export default function KidDetailScreen({ kid, chores, responsibilities, responsibilityLogs, missions, rewardItems, today, onBack, refetch }) {
   const [transactions, setTransactions] = useState([]);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalName, setGoalName] = useState(kid.goal_name || "");
@@ -20,6 +21,8 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
   const [submittingChoreId, setSubmittingChoreId] = useState(null);
   const [submittingRespId, setSubmittingRespId] = useState(null);
   const [submittingMissionId, setSubmittingMissionId] = useState(null);
+  const [showRewards, setShowRewards] = useState(false);
+  const [redeemingId, setRedeemingId] = useState(null);
   const theme = themeOf(kid.theme_id);
 
   useEffect(() => {
@@ -95,6 +98,24 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
     }
   };
 
+  const redeemReward = async (item) => {
+    if ((kid.character_points || 0) < item.points_cost) {
+      alert("責任值不夠喔，再加油一下！");
+      return;
+    }
+    const ok = window.confirm(`確定要用 ${item.points_cost}⭐ 兌換「${item.name}」嗎？`);
+    if (!ok) return;
+    setRedeemingId(item.id);
+    try {
+      await apiRedeemReward(kid.id, item.id);
+      await refetch();
+    } catch (err) {
+      alert(err.message || "兌換失敗");
+    } finally {
+      setRedeemingId(null);
+    }
+  };
+
   const completeMission = async (mission) => {
     setSubmittingMissionId(mission.id);
     try {
@@ -125,7 +146,12 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
         </div>
         <SavingsMeter fill={kid.goal_amount ? goalPct : Math.min(100, kid.balance / 10)} color={theme.accent} />
         <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 10, fontSize: 13, fontWeight: 700, color: "#8A7457" }}>
-          <span>⭐ 責任值 {kid.character_points || 0}</span>
+          <button
+            onClick={() => setShowRewards(true)}
+            style={{ border: "none", background: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "underline" }}
+          >
+            ⭐ 責任值 {kid.character_points || 0}
+          </button>
           <span>🔥 連續 {streak} 天</span>
         </div>
       </div>
@@ -311,6 +337,58 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
         <div style={{ fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>最近紀錄</div>
         <TransactionList transactions={transactions.slice(0, 8)} />
       </div>
+
+      {showRewards && (
+        <div
+          onClick={() => setShowRewards(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "flex-end", zIndex: 50 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "20px 20px 0 0", padding: "18px 18px 28px", width: "100%", maxHeight: "75vh", overflowY: "auto" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontWeight: 800, color: "#8A7457" }}>🎁 責任值兌換（目前 {kid.character_points || 0}⭐）</div>
+              <button onClick={() => setShowRewards(false)} style={{ border: "none", background: "#F1E7DC", borderRadius: 10, width: 30, height: 30, fontWeight: 700, color: "#8A7457" }}>
+                ✕
+              </button>
+            </div>
+
+            {rewardItems.length === 0 && (
+              <div style={{ textAlign: "center", color: "#B4A392", padding: "20px 0" }}>家長還沒有設定兌換項目</div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {rewardItems.map((item) => {
+                const affordable = (kid.character_points || 0) >= item.points_cost;
+                const redeeming = redeemingId === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    disabled={redeeming}
+                    onClick={() => redeemReward(item)}
+                    style={{
+                      border: `2px solid ${affordable ? theme.accent : "#EEE4D8"}`,
+                      borderRadius: 14,
+                      padding: "12px 14px",
+                      background: affordable ? "#fff" : "#F7F1E9",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      opacity: redeeming ? 0.5 : 1,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: affordable ? "inherit" : "#B4A392" }}>{item.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: affordable ? theme.accentDark : "#B4A392" }}>
+                      {item.points_cost}⭐
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

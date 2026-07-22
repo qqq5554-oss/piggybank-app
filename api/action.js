@@ -31,6 +31,9 @@ const PARENT_ACTIONS = new Set([
   "update_allowance_rule",
   "update_expense_rule",
   "change_site_pin",
+  "add_reward_item",
+  "delete_reward_item",
+  "update_reward_item",
 ]);
 
 async function checkPin(pin) {
@@ -124,6 +127,23 @@ export default async function handler(req, res) {
             sql`update kids set character_points = character_points + ${r.points} where id = ${kidId}`,
           ]);
         }
+        break;
+      }
+      case "redeem_reward": {
+        // 小孩用責任值兌換獎勵：先鎖定成本足夠才扣點，避免點數變負數。
+        const { kidId, rewardItemId } = payload;
+        const rows = await sql`select name, points_cost, active from reward_items where id = ${rewardItemId}`;
+        const item = rows[0];
+        if (!item || !item.active) return res.status(404).json({ error: "找不到這個兌換項目" });
+
+        const updated = await sql`
+          update kids set character_points = character_points - ${item.points_cost}
+          where id = ${kidId} and character_points >= ${item.points_cost}
+          returning id
+        `;
+        if (!updated[0]) return res.status(400).json({ error: "責任值不足，無法兌換" });
+
+        await sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, ${-item.points_cost}, ${"兌換：" + item.name})`;
         break;
       }
       case "request_mission_complete": {
@@ -343,6 +363,20 @@ export default async function handler(req, res) {
       case "set_interest_rate": {
         const { kidId, rate } = payload;
         await sql`update kids set interest_rate = ${rate} where id = ${kidId}`;
+        break;
+      }
+      case "add_reward_item": {
+        const { name, pointsCost } = payload;
+        await sql`insert into reward_items (name, points_cost) values (${name}, ${pointsCost})`;
+        break;
+      }
+      case "delete_reward_item": {
+        await sql`delete from reward_items where id = ${payload.rewardItemId}`;
+        break;
+      }
+      case "update_reward_item": {
+        const { rewardItemId, name, pointsCost } = payload;
+        await sql`update reward_items set name = ${name}, points_cost = ${pointsCost} where id = ${rewardItemId}`;
         break;
       }
       default:

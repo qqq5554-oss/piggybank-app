@@ -26,6 +26,7 @@ export default function App() {
     missions,
     allowanceRules,
     expenseRules,
+    rewardItems,
     today,
     loading,
     refetch,
@@ -68,6 +69,7 @@ export default function App() {
           responsibilities={responsibilities}
           responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
           missions={missions.filter((m) => m.kid_id === activeKid.id)}
+          rewardItems={rewardItems}
           today={today}
           onBack={() => setScreen("home")}
           refetch={refetch}
@@ -93,6 +95,7 @@ export default function App() {
           missions={missions}
           allowanceRules={allowanceRules}
           expenseRules={expenseRules}
+          rewardItems={rewardItems}
           pin={parentPin}
           onBack={() => {
             setParentPin(null);

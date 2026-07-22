@@ -108,3 +108,10 @@ export const deleteExpenseRule = (ruleId, pin) => post("delete_expense_rule", { 
 export const updateExpenseRule = (ruleId, name, amount, dayOfMonth, pin) =>
   post("update_expense_rule", { ruleId, name, amount, dayOfMonth }, pin);
 export const setInterestRate = (kidId, rate, pin) => post("set_interest_rate", { kidId, rate }, pin);
+
+// ------- 責任值兌換清單 -------
+export const redeemReward = (kidId, rewardItemId) => post("redeem_reward", { kidId, rewardItemId });
+export const addRewardItem = (name, pointsCost, pin) => post("add_reward_item", { name, pointsCost }, pin);
+export const deleteRewardItem = (rewardItemId, pin) => post("delete_reward_item", { rewardItemId }, pin);
+export const updateRewardItem = (rewardItemId, name, pointsCost, pin) =>
+  post("update_reward_item", { rewardItemId, name, pointsCost }, pin);
