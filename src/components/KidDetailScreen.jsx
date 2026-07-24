@@ -99,7 +99,9 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
   };
 
   const redeemReward = async (item) => {
-    if ((kid.character_points || 0) < item.points_cost) {
+    // character_points / points_cost 是資料庫 numeric 型別，驅動會回傳字串，
+    // 用 < 直接比較字串是字典順序（"19" < "3" 會是 true！）一定要先轉數字。
+    if (Number(kid.character_points || 0) < Number(item.points_cost)) {
       alert("責任值不夠喔，再加油一下！");
       return;
     }
@@ -360,7 +362,7 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {rewardItems.map((item) => {
-                const affordable = (kid.character_points || 0) >= item.points_cost;
+                const affordable = Number(kid.character_points || 0) >= Number(item.points_cost);
                 const redeeming = redeemingId === item.id;
                 return (
                   <button
