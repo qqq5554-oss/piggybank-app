@@ -16,8 +16,17 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "網站密碼錯誤" });
     }
 
+    // 「最近紀錄」把金錢異動（transactions）跟責任值異動（character_point_logs，
+    // 包含加減分、生活責任打卡/取消、責任值兌換）合併成同一份時間軸。
     const transactions = await sql`
-      select * from transactions
+      select id, 'money' as kind, type, amount, note, created_at
+      from transactions
+      where kid_id = ${kidId}
+      union all
+      select id, 'points' as kind,
+        case when delta >= 0 then 'point_gain' else 'point_loss' end as type,
+        abs(delta) as amount, reason as note, created_at
+      from character_point_logs
       where kid_id = ${kidId}
       order by created_at desc
       limit 50
