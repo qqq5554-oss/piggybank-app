@@ -6,10 +6,12 @@ import KidDetailScreen from "./components/KidDetailScreen";
 import ParentPinScreen from "./components/ParentPinScreen";
 import ParentDashboard from "./components/ParentDashboard";
 import SiteAccessScreen from "./components/SiteAccessScreen";
+import QuickRecordScreen from "./components/QuickRecordScreen";
 
 // 畫面流程：
 // siteLocked（進站密碼）→ home（選小孩）→ kidDetail（小孩自己的帳戶）
-// home → parentPinEntry（輸入密碼）→ parentDashboard（家長後台）
+// home → parentPinEntry（輸入密碼）→ parentDashboard（家長後台）或 quickRecord（快速記帳）
+// pinIntent 記著輸入密碼是為了去哪一個畫面
 export default function App() {
   const [siteUnlocked, setSiteUnlocked] = useState(!!getSitePin());
   const handleUnauthorized = useCallback(() => {
@@ -34,6 +36,7 @@ export default function App() {
   const [screen, setScreen] = useState("home");
   const [activeKidId, setActiveKidId] = useState(null);
   const [parentPin, setParentPin] = useState(null); // 驗證成功的 PIN，家長後台的寫入操作要帶著它
+  const [pinIntent, setPinIntent] = useState("dashboard"); // 輸入密碼成功後要去 dashboard 還是 quickRecord
 
   if (!siteUnlocked) {
     return <SiteAccessScreen onSuccess={() => setSiteUnlocked(true)} />;
@@ -58,7 +61,14 @@ export default function App() {
             setActiveKidId(id);
             setScreen("kidDetail");
           }}
-          onParentClick={() => setScreen("parentPinEntry")}
+          onParentClick={() => {
+            setPinIntent("dashboard");
+            setScreen("parentPinEntry");
+          }}
+          onQuickRecord={() => {
+            setPinIntent("quickRecord");
+            setScreen("parentPinEntry");
+          }}
         />
       )}
 
@@ -81,8 +91,20 @@ export default function App() {
           onBack={() => setScreen("home")}
           onSuccess={(pin) => {
             setParentPin(pin);
-            setScreen("parentDashboard");
+            setScreen(pinIntent === "quickRecord" ? "quickRecord" : "parentDashboard");
           }}
+        />
+      )}
+
+      {screen === "quickRecord" && (
+        <QuickRecordScreen
+          kids={kids}
+          pin={parentPin}
+          onClose={() => {
+            setParentPin(null);
+            setScreen("home");
+          }}
+          refetch={refetch}
         />
       )}
 
