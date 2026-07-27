@@ -3,9 +3,6 @@ import { Lock, Plus } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
 
 export default function HomeScreen({ kids, onSelectKid, onParentClick, onQuickRecord }) {
-  const totalBalance = kids.reduce((sum, k) => sum + Number(k.balance || 0), 0);
-  const totalPoints = kids.reduce((sum, k) => sum + Number(k.character_points || 0), 0);
-
   return (
     <div style={{ padding: "20px 18px 100px", position: "relative", minHeight: "100vh", boxSizing: "border-box" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
@@ -19,21 +16,6 @@ export default function HomeScreen({ kids, onSelectKid, onParentClick, onQuickRe
         >
           <Lock size={18} color="#94795F" />
         </button>
-      </div>
-
-      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-        <div style={{ flex: 1, background: "#FFF6F0", border: "2px solid #FFE1CC", borderRadius: 16, padding: "14px 16px" }}>
-          <div style={{ fontSize: 12, color: "#B4A392", fontWeight: 700 }}>全部存款</div>
-          <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 22, fontWeight: 800, color: "#E86A3A", marginTop: 2 }}>
-            {currency(totalBalance)}
-          </div>
-        </div>
-        <div style={{ flex: 1, background: "#FBF3EA", border: "2px solid #EEDFC8", borderRadius: 16, padding: "14px 16px" }}>
-          <div style={{ fontSize: 12, color: "#B4A392", fontWeight: 700 }}>全部責任值</div>
-          <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 22, fontWeight: 800, color: "#94795F", marginTop: 2 }}>
-            ⭐ {totalPoints}
-          </div>
-        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

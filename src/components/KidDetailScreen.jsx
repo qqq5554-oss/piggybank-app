@@ -8,7 +8,7 @@ import {
   requestMissionComplete as apiRequestMissionComplete,
   redeemReward as apiRedeemReward,
 } from "../api/client";
-import { currency, themeOf, computeStreak } from "../utils/format";
+import { currency, themeOf } from "../utils/format";
 import SavingsMeter from "./SavingsMeter";
 import TransactionList from "./TransactionList";
 
@@ -84,8 +84,6 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
   const doneTodayIds = new Set(
     responsibilityLogs.filter((l) => String(l.log_date).slice(0, 10) === todayDatePart).map((l) => l.responsibility_id)
   );
-  const streak = computeStreak(responsibilityLogs, responsibilities.length, today);
-
   const toggleResponsibility = async (resp) => {
     setSubmittingRespId(resp.id);
     try {
@@ -154,7 +152,6 @@ export default function KidDetailScreen({ kid, chores, responsibilities, respons
           >
             ⭐ 責任值 {kid.character_points || 0}
           </button>
-          <span>🔥 連續 {streak} 天</span>
         </div>
       </div>
 

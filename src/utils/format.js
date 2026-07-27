@@ -16,31 +16,3 @@ export const KID_THEMES = [
 export const AVATARS = ["🐶", "🐱", "🐰", "🦊", "🐼", "🦁", "🐨", "🐯", "🐸"];
 
 export const themeOf = (id) => KID_THEMES.find((t) => t.id === id) || KID_THEMES[0];
-
-// 從打卡紀錄計算連續完成天數：某一天要所有責任項目都打卡才算完成的一天
-// today 一律用資料庫伺服器認定的「今天」（YYYY-MM-DD 字串）往回推，
-// 不用瀏覽器的 new Date()，避免裝置時區跟資料庫時區對不起來。
-export function computeStreak(responsibilityLogs, totalCount, today) {
-  if (!totalCount || !today) return 0;
-  const counts = {};
-  responsibilityLogs.forEach((l) => {
-    counts[l.log_date] = (counts[l.log_date] || 0) + 1;
-  });
-  let streak = 0;
-  // today 只取前 10 碼（YYYY-MM-DD），就算後端不小心傳成完整 ISO
-  // 時間字串也不會拼出畸形字串讓 new Date() 變成 Invalid Date
-  // （Invalid Date 呼叫 toISOString() 會直接丟出例外，讓整個畫面白屏）。
-  const datePart = String(today).slice(0, 10);
-  const d = new Date(`${datePart}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return 0;
-  for (;;) {
-    const key = d.toISOString().slice(0, 10);
-    if ((counts[key] || 0) >= totalCount) {
-      streak++;
-      d.setUTCDate(d.getUTCDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
