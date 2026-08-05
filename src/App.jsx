@@ -76,7 +76,7 @@ export default function App() {
         <KidDetailScreen
           kid={activeKid}
           chores={chores}
-          responsibilities={responsibilities}
+          responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
           responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
           missions={missions.filter((m) => m.kid_id === activeKid.id)}
           rewardItems={rewardItems}

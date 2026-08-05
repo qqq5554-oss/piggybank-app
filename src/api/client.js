@@ -78,7 +78,7 @@ export const changePin = (newPin, pin) => post("change_pin", { newPin }, pin);
 // ------- 生活責任 -------
 export const toggleResponsibility = (kidId, responsibilityId) =>
   post("toggle_responsibility", { kidId, responsibilityId });
-export const addResponsibility = (name, points, pin) => post("add_responsibility", { name, points }, pin);
+export const addResponsibility = (kidId, name, points, pin) => post("add_responsibility", { kidId, name, points }, pin);
 export const deleteResponsibility = (responsibilityId, pin) => post("delete_responsibility", { responsibilityId }, pin);
 export const updateResponsibility = (responsibilityId, name, points, pin) =>
   post("update_responsibility", { responsibilityId, name, points }, pin);

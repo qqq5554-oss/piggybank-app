@@ -188,3 +188,26 @@ create table if not exists reward_items (
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+-- ============================================================
+-- Phase 5 追加（生活責任改成每個小孩獨立，不再共用）
+-- ⚠️ 這段本身是冪等的（靠 kid_id is null 當條件），可以直接在
+--    既有資料庫上執行，重複執行也不會重複複製
+-- ============================================================
+
+alter table responsibilities add column if not exists kid_id uuid references kids(id) on delete cascade;
+
+-- 把目前共用的責任項目，複製成每個小孩各自獨立的一份，
+-- 之後編輯其中一個小孩的項目就不會影響到其他小孩
+insert into responsibilities (kid_id, name, points, created_at)
+select k.id, r.name, r.points, r.created_at
+from responsibilities r
+cross join kids k
+where r.kid_id is null;
+
+-- 舊的共用項目複製完了就可以刪掉（會連帶刪掉舊的打卡紀錄，
+-- 但打卡紀錄只影響「今天有沒有打過卡」的畫面狀態，不影響
+-- 最近紀錄裡已經寫好的文字紀錄，所以不會遺失任何看得到的歷史）
+delete from responsibilities where kid_id is null;
+
+alter table responsibilities alter column kid_id set not null;

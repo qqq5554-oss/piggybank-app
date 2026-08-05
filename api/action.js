@@ -237,8 +237,8 @@ export default async function handler(req, res) {
         break;
       }
       case "add_responsibility": {
-        const { name, points } = payload;
-        await sql`insert into responsibilities (name, points) values (${name}, ${points})`;
+        const { kidId, name, points } = payload;
+        await sql`insert into responsibilities (kid_id, name, points) values (${kidId}, ${name}, ${points})`;
         break;
       }
       case "delete_responsibility": {

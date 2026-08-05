@@ -100,7 +100,7 @@ export default function ParentDashboard({
         {tab === "review" && <ReviewTab kids={kids} pendingChores={pendingChores} missions={missions} pin={pin} refetch={refetch} />}
         {tab === "kids" && <KidsManageTab kids={kids} pin={pin} refetch={refetch} />}
         {tab === "chores" && <ChoresManageTab chores={chores} pin={pin} refetch={refetch} />}
-        {tab === "responsibilities" && <ResponsibilitiesManageTab responsibilities={responsibilities} pin={pin} refetch={refetch} />}
+        {tab === "responsibilities" && <ResponsibilitiesManageTab kids={kids} responsibilities={responsibilities} pin={pin} refetch={refetch} />}
         {tab === "missions" && <MissionsManageTab kids={kids} missions={missions} pin={pin} refetch={refetch} />}
         {tab === "rewards" && <RewardsManageTab rewardItems={rewardItems} pin={pin} refetch={refetch} />}
         {tab === "recurring" && (
@@ -583,7 +583,8 @@ function ChoresManageTab({ chores, pin, refetch }) {
 }
 
 // ---------------- 生活責任管理 ----------------
-function ResponsibilitiesManageTab({ responsibilities, pin, refetch }) {
+function ResponsibilitiesManageTab({ kids, responsibilities, pin, refetch }) {
+  const [kidId, setKidId] = useState(kids[0]?.id || "");
   const [name, setName] = useState("");
   const [points, setPoints] = useState("1");
   const [adding, setAdding] = useState(false);
@@ -593,11 +594,13 @@ function ResponsibilitiesManageTab({ responsibilities, pin, refetch }) {
   const [editPoints, setEditPoints] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const kidResponsibilities = responsibilities.filter((r) => r.kid_id === kidId);
+
   const add = async () => {
-    if (!name.trim() || !Number(points) || Number(points) <= 0) return;
+    if (!kidId || !name.trim() || !Number(points) || Number(points) <= 0) return;
     setAdding(true);
     try {
-      await addResponsibility(name.trim(), Number(points), pin);
+      await addResponsibility(kidId, name.trim(), Number(points), pin);
       setName("");
       setPoints("1");
       await refetch();
@@ -642,8 +645,35 @@ function ResponsibilitiesManageTab({ responsibilities, pin, refetch }) {
 
   return (
     <div>
+      <label style={labelStyle}>指定小孩</label>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {kids.map((k) => (
+          <button
+            key={k.id}
+            onClick={() => setKidId(k.id)}
+            style={{
+              flex: 1,
+              padding: "8px 6px",
+              borderRadius: 10,
+              border: "none",
+              fontWeight: 700,
+              fontSize: 13,
+              background: kidId === k.id ? "#5A4632" : "#F1E7DC",
+              color: kidId === k.id ? "#fff" : "#8A7457",
+            }}
+          >
+            {k.avatar} {k.name}
+          </button>
+        ))}
+      </div>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-        {responsibilities.map((r) =>
+        {kidResponsibilities.length === 0 && (
+          <div style={{ textAlign: "center", color: "#B4A392", padding: "16px 0", fontSize: 13 }}>
+            這個小孩還沒有生活責任項目
+          </div>
+        )}
+        {kidResponsibilities.map((r) =>
           editingId === r.id ? (
             <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", padding: "10px 12px", borderRadius: 12 }}>
               <input style={{ ...inputStyle, flex: 1 }} value={editName} onChange={(e) => setEditName(e.target.value)} />
