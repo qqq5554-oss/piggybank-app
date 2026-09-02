@@ -12,6 +12,7 @@ import TodayResponsibilityScreen from "./components/TodayResponsibilityScreen";
 import ChallengeScreen from "./components/ChallengeScreen";
 import SpinWheelScreen from "./components/SpinWheelScreen";
 import FocusTimerScreen from "./components/FocusTimerScreen";
+import { useFocusTimer } from "./hooks/useFocusTimer";
 
 // 畫面流程（家長 PIN 已取消，只留進站密碼當大門）：
 // siteLocked（進站密碼）→ home（兩張大卡片 + 常用功能）
@@ -20,6 +21,12 @@ import FocusTimerScreen from "./components/FocusTimerScreen";
 //   支出／收入／責任 → quickRecord（數字鍵盤記一筆）
 //   挑戰 → challenge
 // 點卡片本身 → kidDetail（完整帳戶頁）；右上齒輪 → manage（管理）
+// 首頁按鈕上顯示的剩餘時間
+const formatRemaining = (ms) => {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+};
+
 export default function App() {
   const [siteUnlocked, setSiteUnlocked] = useState(!!getSitePin());
   const handleUnauthorized = useCallback(() => {
@@ -49,6 +56,8 @@ export default function App() {
   } = useKidsData(siteUnlocked, handleUnauthorized);
 
   const [screen, setScreen] = useState("home");
+  // 專注鐘的狀態放在最外層，換頁也會繼續跑
+  const timer = useFocusTimer();
   const [activeKidId, setActiveKidId] = useState(null);
   const [quickTab, setQuickTab] = useState("expense");
 
@@ -97,6 +106,7 @@ export default function App() {
       onManage={() => setScreen("manage")}
       onWheel={() => setScreen("wheel")}
       onTimer={() => setScreen("timer")}
+      timerLabel={timer.running ? formatRemaining(timer.remainingMs) : null}
     />
   );
 
@@ -153,7 +163,7 @@ export default function App() {
   } else if (screen === "wheel") {
     subScreen = <SpinWheelScreen wheelOptions={wheelOptions} kids={kids} onBack={goHome} refetch={refetch} />;
   } else if (screen === "timer") {
-    subScreen = <FocusTimerScreen onBack={goHome} />;
+    subScreen = <FocusTimerScreen timer={timer} onBack={goHome} />;
   } else if (screen === "manage") {
     subScreen = (
       <ParentDashboard

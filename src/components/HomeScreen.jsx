@@ -22,6 +22,7 @@ export default function HomeScreen({
   onManage,
   onWheel,
   onTimer,
+  timerLabel = null,
 }) {
   return (
     <div style={{ padding: "20px 18px 40px", minHeight: "100vh", boxSizing: "border-box" }}>
@@ -59,13 +60,13 @@ export default function HomeScreen({
               padding: "0 13px",
               borderRadius: 12,
               border: "none",
-              background: "#EAF8F2",
-              color: "#2A9670",
+              background: timerLabel ? "#3DB88A" : "#EAF8F2",
+              color: timerLabel ? "#fff" : "#2A9670",
               fontWeight: 800,
               fontSize: 13,
             }}
           >
-            <Timer size={16} color="#2A9670" /> 專注鐘
+            <Timer size={16} color={timerLabel ? "#fff" : "#2A9670"} /> {timerLabel || "專注鐘"}
           </button>
           <button
             onClick={onManage}

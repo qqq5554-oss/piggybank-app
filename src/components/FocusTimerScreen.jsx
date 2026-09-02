@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import { ChevronLeft, Play, Pause, RotateCcw, Volume2, VolumeX } from "lucide-react";
 
 const SIZE = 300;
@@ -31,114 +31,16 @@ const mmss = (ms) => {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 };
 
-// 時間到的提示音：用 Web Audio 直接合成，不用額外的音檔
-function beep() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const play = (startAt, freq) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.001, startAt);
-      gain.gain.exponentialRampToValueAtTime(0.25, startAt + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.35);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(startAt);
-      osc.stop(startAt + 0.4);
-    };
-    const now = ctx.currentTime;
-    play(now, 880);
-    play(now + 0.45, 880);
-    play(now + 0.9, 1175);
-    setTimeout(() => ctx.close(), 2000);
-  } catch (err) {
-    console.error("提示音播放失敗", err);
-  }
-}
-
 // 視覺化的專注計時器（Time Timer 風格）：
 // 剩餘時間用色塊表示，時間過去色塊會跟著縮小，小孩不用看懂數字
 // 也能知道「還剩多久」。刻度一圈 60 分鐘，每 5 分鐘一個數字。
-export default function FocusTimerScreen({ onBack }) {
-  const [totalMs, setTotalMs] = useState(10 * 60 * 1000);
-  const [remainingMs, setRemainingMs] = useState(10 * 60 * 1000);
-  const [running, setRunning] = useState(false);
-  const [finished, setFinished] = useState(false);
-  const [soundOn, setSoundOn] = useState(true);
+// 計時狀態放在 App 層（useFocusTimer），所以離開這一頁、回首頁、
+// 甚至關掉 App 再打開，時間都還在繼續跑。
+export default function FocusTimerScreen({ timer, onBack }) {
+  const { totalMs, remainingMs, running, finished, soundOn, start, pause, reset, setMinutes, toggleSound } = timer;
   const [dragging, setDragging] = useState(false);
 
-  const endAtRef = useRef(0);
-  const wakeLockRef = useRef(null);
   const svgRef = useRef(null);
-  const soundRef = useRef(soundOn);
-  soundRef.current = soundOn;
-
-  // 計時中讓螢幕不要自動關掉（瀏覽器不支援就算了）
-  const requestWakeLock = useCallback(async () => {
-    try {
-      if ("wakeLock" in navigator) wakeLockRef.current = await navigator.wakeLock.request("screen");
-    } catch (err) {
-      /* 不支援或被拒絕都無所謂，計時本身不受影響 */
-    }
-  }, []);
-  const releaseWakeLock = useCallback(() => {
-    wakeLockRef.current?.release?.().catch(() => {});
-    wakeLockRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    if (!running) return;
-
-    // 用「結束時間」推算剩餘，就算分頁被系統降速也不會走鐘
-    const id = setInterval(() => {
-      const left = endAtRef.current - Date.now();
-      if (left <= 0) {
-        setRemainingMs(0);
-        setRunning(false);
-        setFinished(true);
-        releaseWakeLock();
-        if (soundRef.current) beep();
-        navigator.vibrate?.([200, 100, 200, 100, 300]);
-      } else {
-        setRemainingMs(left);
-      }
-    }, 200);
-    return () => clearInterval(id);
-  }, [running, releaseWakeLock]);
-
-  useEffect(() => () => releaseWakeLock(), [releaseWakeLock]);
-
-  const start = () => {
-    if (remainingMs <= 0) return;
-    endAtRef.current = Date.now() + remainingMs;
-    setFinished(false);
-    setRunning(true);
-    requestWakeLock();
-  };
-
-  const pause = () => {
-    setRunning(false);
-    releaseWakeLock();
-  };
-
-  const reset = () => {
-    setRunning(false);
-    setFinished(false);
-    setRemainingMs(totalMs);
-    releaseWakeLock();
-  };
-
-  const setMinutes = (min) => {
-    const ms = Math.max(1, Math.min(FULL_MIN, min)) * 60 * 1000;
-    setRunning(false);
-    setFinished(false);
-    setTotalMs(ms);
-    setRemainingMs(ms);
-    releaseWakeLock();
-  };
 
   // 直接在錶面上拖曳設定時間（跟實體 Time Timer 一樣的操作）
   const angleFromEvent = (e) => {
@@ -169,7 +71,7 @@ export default function FocusTimerScreen({ onBack }) {
           <span style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 17 }}>⏱️ 專注鐘</span>
         </div>
         <button
-          onClick={() => setSoundOn((v) => !v)}
+          onClick={toggleSound}
           aria-label={soundOn ? "關閉提示音" : "開啟提示音"}
           style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: "#F1E7DC", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
