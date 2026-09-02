@@ -406,6 +406,21 @@ export default async function handler(req, res) {
         break;
       }
 
+      // ------- 小轉盤 -------
+      case "add_wheel_option": {
+        const { label, sortOrder = 0 } = payload;
+        await sql`insert into wheel_options (label, sort_order) values (${label}, ${sortOrder})`;
+        break;
+      }
+      case "update_wheel_option": {
+        await sql`update wheel_options set label = ${payload.label} where id = ${payload.optionId}`;
+        break;
+      }
+      case "delete_wheel_option": {
+        await sql`delete from wheel_options where id = ${payload.optionId}`;
+        break;
+      }
+
       // ------- 手機推播訂閱 -------
       case "save_push_subscription": {
         const { endpoint, p256dh, auth: authKey, label = null } = payload;

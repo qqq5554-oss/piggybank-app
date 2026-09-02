@@ -1,5 +1,5 @@
 import React from "react";
-import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy } from "lucide-react";
+import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3 } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
@@ -20,6 +20,7 @@ export default function HomeScreen({
   onSelectKid,
   onAction,
   onManage,
+  onWheel,
 }) {
   return (
     <div style={{ padding: "20px 18px 40px", minHeight: "100vh", boxSizing: "border-box" }}>
@@ -28,13 +29,33 @@ export default function HomeScreen({
           <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, fontWeight: 800 }}>總覽</div>
           <div style={{ color: "#B4A392", fontSize: 12.5, marginTop: 2 }}>小小存錢筒</div>
         </div>
-        <button
-          onClick={onManage}
-          aria-label="管理"
-          style={{ width: 38, height: 38, borderRadius: 12, border: "none", background: "#F1E7DC" }}
-        >
-          <Settings size={18} color="#94795F" />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={onWheel}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              height: 38,
+              padding: "0 13px",
+              borderRadius: 12,
+              border: "none",
+              background: "#FFEDE1",
+              color: "#E86A3A",
+              fontWeight: 800,
+              fontSize: 13,
+            }}
+          >
+            <Disc3 size={16} color="#E86A3A" /> 小轉盤
+          </button>
+          <button
+            onClick={onManage}
+            aria-label="管理"
+            style={{ width: 38, height: 38, borderRadius: 12, border: "none", background: "#F1E7DC" }}
+          >
+            <Settings size={18} color="#94795F" />
+          </button>
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

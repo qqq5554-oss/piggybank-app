@@ -10,6 +10,7 @@ import SiteAccessScreen from "./components/SiteAccessScreen";
 import QuickRecordScreen from "./components/QuickRecordScreen";
 import TodayResponsibilityScreen from "./components/TodayResponsibilityScreen";
 import ChallengeScreen from "./components/ChallengeScreen";
+import SpinWheelScreen from "./components/SpinWheelScreen";
 
 // 畫面流程（家長 PIN 已取消，只留進站密碼當大門）：
 // siteLocked（進站密碼）→ home（兩張大卡片 + 常用功能）
@@ -36,6 +37,7 @@ export default function App() {
     expenseRules,
     rewardItems,
     challenges,
+    wheelOptions,
     vapidPublicKey,
     today,
     loading,
@@ -89,6 +91,7 @@ export default function App() {
       }}
       onAction={handleAction}
       onManage={() => setScreen("manage")}
+      onWheel={() => setScreen("wheel")}
     />
   );
 
@@ -139,6 +142,8 @@ export default function App() {
         refetch={refetch}
       />
     );
+  } else if (screen === "wheel") {
+    subScreen = <SpinWheelScreen wheelOptions={wheelOptions} kids={kids} onBack={goHome} refetch={refetch} />;
   } else if (screen === "manage") {
     subScreen = (
       <ParentDashboard

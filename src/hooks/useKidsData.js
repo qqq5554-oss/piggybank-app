@@ -20,6 +20,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
   const [expenseRules, setExpenseRules] = useState([]);
   const [rewardItems, setRewardItems] = useState([]);
   const [challenges, setChallenges] = useState([]);
+  const [wheelOptions, setWheelOptions] = useState([]);
   const [vapidPublicKey, setVapidPublicKey] = useState(null);
   const [today, setToday] = useState(null); // 資料庫伺服器認定的「今天」，不是瀏覽器自己算的
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
       setExpenseRules(data.expenseRules);
       setRewardItems(data.rewardItems);
       setChallenges(data.challenges);
+      setWheelOptions(data.wheelOptions || []);
       setVapidPublicKey(data.vapidPublicKey);
       setToday(data.today);
     } catch (err) {
@@ -73,6 +75,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
     expenseRules,
     rewardItems,
     challenges,
+    wheelOptions,
     vapidPublicKey,
     today,
     loading,

@@ -251,3 +251,22 @@ create table if not exists notification_logs (
   created_at timestamptz not null default now(),
   unique (kind, ref_date)
 );
+
+-- ============================================================
+-- Phase 7 追加（小轉盤）
+-- ⚠️ 同樣可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 轉盤選項：家長自己編輯要放什麼，全家共用同一個轉盤
+create table if not exists wheel_options (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- 第一次建立時放幾個範例，之後可以自己改
+insert into wheel_options (label, sort_order)
+select v.label, v.sort_order
+from (values ('洗碗', 1), ('倒垃圾', 2), ('摺衣服', 3), ('掃地', 4)) as v(label, sort_order)
+where not exists (select 1 from wheel_options);

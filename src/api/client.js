@@ -134,3 +134,8 @@ export const savePushSubscription = (sub, label) =>
     label,
   });
 export const deletePushSubscription = (endpoint) => post("delete_push_subscription", { endpoint });
+
+// ------- 小轉盤 -------
+export const addWheelOption = (label, sortOrder) => post("add_wheel_option", { label, sortOrder });
+export const updateWheelOption = (optionId, label) => post("update_wheel_option", { optionId, label });
+export const deleteWheelOption = (optionId) => post("delete_wheel_option", { optionId });
