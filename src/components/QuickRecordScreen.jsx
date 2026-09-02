@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { X, Delete } from "lucide-react";
 import { adjustBalance, awardPoints, fetchTransactions } from "../api/client";
-import { themeOf } from "../utils/format";
 import TransactionList from "./TransactionList";
 
 const TABS = [
@@ -10,22 +9,25 @@ const TABS = [
   { id: "points", label: "責任值" },
 ];
 
-const MONEY_NOTE_SUGGESTIONS = {
-  income: ["家長加值", "獎勵"],
-  expense: ["日常花費", "買東西"],
-};
-const POINTS_NOTE_SUGGESTIONS = {
-  gain: ["表現良好", "主動幫忙", "有禮貌"],
-  loss: ["忘記事情", "態度不佳"],
+// 進哪個分頁就預設哪個正負號，之後可以用鍵盤上的 + − 自己改
+const DEFAULT_SIGN = { expense: "-", income: "+", points: "+" };
+
+const NOTE_SUGGESTIONS = {
+  "money+": ["家長加值", "獎勵", "紅包"],
+  "money-": ["日常花費", "買東西", "違規扣款"],
+  "points+": ["表現良好", "主動幫忙", "有禮貌"],
+  "points-": ["忘記事情", "態度不佳", "違規"],
 };
 
-// 給家長快速記一筆的輸入頁：像記帳 app 一樣，數字鍵盤 + 分類，
-// 一次只記一筆錢或一筆責任值，存完鍵盤歸零可以馬上記下一筆。
+const POSITIVE = "#3DB88A";
+const NEGATIVE = "#E85D5D";
+
+// 快速記帳頁：上面是計算機式的數字鍵盤（正負號自己按 + −），
+// 中間填原因，下面用一張卡片顯示這一類的相關紀錄。
 export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab = "expense", onClose, refetch }) {
   const [kidId, setKidId] = useState(initialKidId || kids[0]?.id || "");
   const [tab, setTab] = useState(initialTab);
-  const [moneyKind, setMoneyKind] = useState("normal"); // normal | penalty（只有支出用得到）
-  const [direction, setDirection] = useState("gain"); // gain | loss（只有責任值用得到）
+  const [sign, setSign] = useState(DEFAULT_SIGN[initialTab] || "-");
   const [amountStr, setAmountStr] = useState("0");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -46,28 +48,25 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
   }, [kidId, loadHistory]);
 
   const kid = kids.find((k) => k.id === kidId) || kids[0];
-  const theme = themeOf(kid?.theme_id);
   const amount = Number(amountStr) || 0;
+  const isPoints = tab === "points";
+  const unit = isPoints ? "⭐" : "元";
+  const accent = sign === "-" ? NEGATIVE : POSITIVE;
 
-  const pressDigit = (d) => {
+  const press = (key) => {
     setLastSaved("");
+    if (key === "+" || key === "-") return setSign(key);
+    if (key === "C") return setAmountStr("0");
+    if (key === "back") return setAmountStr((p) => (p.length <= 1 ? "0" : p.slice(0, -1)));
     setAmountStr((prev) => {
-      if (prev === "0") return d;
-      if (prev.replace(".", "").length >= 7) return prev;
-      return prev + d;
+      const next = prev === "0" ? key : prev + key;
+      return next.length > 7 ? prev : next;
     });
-  };
-  const backspace = () => {
-    setLastSaved("");
-    setAmountStr((prev) => (prev.length <= 1 ? "0" : prev.slice(0, -1)));
-  };
-  const clearAmount = () => {
-    setLastSaved("");
-    setAmountStr("0");
   };
 
   const switchTab = (t) => {
     setTab(t);
+    setSign(DEFAULT_SIGN[t]);
     setNote("");
     setLastSaved("");
   };
@@ -76,18 +75,16 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
     if (!amount || amount <= 0 || !kidId) return;
     setSubmitting(true);
     try {
-      if (tab === "points") {
-        const delta = direction === "gain" ? amount : -amount;
-        const reason = note.trim() || (direction === "gain" ? "表現良好" : "扣分");
+      if (isPoints) {
+        const delta = sign === "-" ? -amount : amount;
+        const reason = note.trim() || (delta > 0 ? "表現良好" : "扣分");
         await awardPoints(kidId, delta, reason, pin);
-        setLastSaved(`已記錄 ${direction === "gain" ? "+" : "-"}${amount}⭐（${kid.name}）`);
       } else {
-        const type = tab === "income" ? "income" : moneyKind === "penalty" ? "penalty" : "expense";
-        const defaultNote = type === "income" ? "家長加值" : type === "penalty" ? "違規扣款" : "日常花費";
-        const finalNote = note.trim() || defaultNote;
+        const type = sign === "-" ? "expense" : "income";
+        const finalNote = note.trim() || (type === "income" ? "家長加值" : "日常花費");
         await adjustBalance(kidId, type, amount, finalNote, pin);
-        setLastSaved(`已記錄 ${type === "income" ? "+" : "-"}${amount} 元（${kid.name}）`);
       }
+      setLastSaved(`已記錄 ${sign}${amount}${unit}（${kid.name}）`);
       await refetch();
       await loadHistory(kidId);
       setAmountStr("0");
@@ -110,19 +107,18 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
     );
   }
 
-  // 每個分頁只看自己的紀錄：責任值一區、收入一區、支出（含違規扣款）一區
+  // 下面那張卡片只顯示「這次要記的這一類」的紀錄
+  const historyLabel = isPoints ? "責任值" : sign === "-" ? "支出" : "收入";
   const tabHistory = history.filter((t) => {
-    if (tab === "points") return t.kind === "points";
+    if (isPoints) return t.kind === "points";
     if (t.kind !== "money") return false;
-    return tab === "income" ? t.type === "income" : t.type === "expense" || t.type === "penalty";
+    return sign === "-" ? t.type === "expense" || t.type === "penalty" : t.type === "income";
   });
 
-  const suggestions = tab === "points" ? POINTS_NOTE_SUGGESTIONS[direction] : MONEY_NOTE_SUGGESTIONS[tab];
-  const unit = tab === "points" ? "⭐" : "元";
-  const accent = tab === "points" ? "#94795F" : tab === "income" ? "#3DB88A" : "#E85D5D";
+  const suggestions = NOTE_SUGGESTIONS[`${isPoints ? "points" : "money"}${sign}`] || [];
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#FBF6EF" }}>
+    <div style={{ minHeight: "100vh", background: "#FBF6EF", paddingBottom: 40 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 14px 6px" }}>
         <button onClick={onClose} style={{ background: "#F1E7DC", border: "none", borderRadius: 10, width: 34, height: 34 }}>
           <X size={20} color="#5A4632" />
@@ -164,7 +160,7 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
               flex: 1,
               padding: "10px 6px",
               border: "none",
-              borderBottom: `3px solid ${tab === t.id ? accent : "transparent"}`,
+              borderBottom: `3px solid ${tab === t.id ? "#5A4632" : "transparent"}`,
               background: "none",
               fontWeight: 800,
               fontSize: 15,
@@ -176,152 +172,118 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
         ))}
       </div>
 
-      <div style={{ textAlign: "center", padding: "18px 20px 6px" }}>
-        <div style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 44, color: accent }}>
+      {/* ---- 計算機 ---- */}
+      <div style={{ margin: "14px 14px 0", background: "#fff", borderRadius: 20, padding: 14 }}>
+        <div
+          style={{
+            textAlign: "right",
+            fontFamily: "'Baloo 2', sans-serif",
+            fontWeight: 800,
+            fontSize: 46,
+            color: accent,
+            padding: "6px 8px 14px",
+            lineHeight: 1.1,
+            wordBreak: "break-all",
+          }}
+        >
+          {sign === "-" ? "−" : "+"}
           {amountStr}
           <span style={{ fontSize: 22, marginLeft: 4 }}>{unit}</span>
         </div>
-      </div>
 
-      {tab === "expense" && (
-        <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
           {[
-            { id: "normal", label: "一般支出" },
-            { id: "penalty", label: "違規扣款" },
-          ].map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => setMoneyKind(opt.id)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 20,
-                border: `2px solid ${moneyKind === opt.id ? accent : "#F1E7DC"}`,
-                background: moneyKind === opt.id ? "#FFF5F0" : "#fff",
-                fontWeight: 700,
-                fontSize: 12.5,
-                color: moneyKind === opt.id ? accent : "#B4A392",
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tab === "points" && (
-        <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 6 }}>
-          {[
-            { id: "gain", label: "＋加分" },
-            { id: "loss", label: "－扣分" },
-          ].map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => setDirection(opt.id)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 20,
-                border: `2px solid ${direction === opt.id ? accent : "#F1E7DC"}`,
-                background: direction === opt.id ? "#FBF3EA" : "#fff",
-                fontWeight: 700,
-                fontSize: 12.5,
-                color: direction === opt.id ? accent : "#B4A392",
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div style={{ padding: "4px 18px" }}>
-        <input
-          placeholder="原因／備註（選填）"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          style={{ width: "100%", boxSizing: "border-box", border: "2px solid #F1E7DC", borderRadius: 10, padding: "9px 12px", fontSize: 14, outline: "none" }}
-        />
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-          {suggestions.map((s) => (
-            <button
-              key={s}
-              onClick={() => setNote(s)}
-              style={{ border: "none", borderRadius: 14, padding: "5px 10px", background: "#F1E7DC", color: "#8A7457", fontSize: 12, fontWeight: 700 }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ flex: 1, minHeight: 90, overflowY: "auto", padding: "14px 18px 4px" }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>
-          {kid.name} 最近的{tab === "points" ? "責任值" : tab === "income" ? "收入" : "支出"}紀錄
-        </div>
-        <TransactionList transactions={tabHistory.slice(0, 20)} />
-      </div>
-
-      {lastSaved && (
-        <div style={{ textAlign: "center", color: "#3DB88A", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>✅ {lastSaved}</div>
-      )}
-
-      <div style={{ padding: "6px 18px 10px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"].map((d, i) => {
-            if (d === "clear") {
-              return (
-                <button key={i} onClick={clearAmount} style={keyStyle}>
-                  C
-                </button>
-              );
-            }
-            if (d === "back") {
-              return (
-                <button key={i} onClick={backspace} style={keyStyle}>
-                  <Delete size={18} />
-                </button>
-              );
-            }
+            { k: "7" }, { k: "8" }, { k: "9" }, { k: "back", node: <Delete size={18} />, tone: "func" },
+            { k: "4" }, { k: "5" }, { k: "6" }, { k: "C", tone: "func" },
+            { k: "1" }, { k: "2" }, { k: "3" }, { k: "-", label: "−", tone: "sign" },
+            { k: "0", span: 2 }, { k: "00" }, { k: "+", label: "＋", tone: "sign" },
+          ].map(({ k, label, node, tone, span }) => {
+            const activeSign = tone === "sign" && sign === k;
             return (
-              <button key={i} onClick={() => pressDigit(d)} style={keyStyle}>
-                {d}
+              <button
+                key={k}
+                onClick={() => press(k)}
+                style={{
+                  gridColumn: span ? `span ${span}` : undefined,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "16px 0",
+                  borderRadius: 14,
+                  border: activeSign ? `2px solid ${k === "-" ? NEGATIVE : POSITIVE}` : "none",
+                  background:
+                    tone === "sign"
+                      ? activeSign
+                        ? k === "-"
+                          ? "#FFF0EC"
+                          : "#EAF8F2"
+                        : "#F7F1E9"
+                      : tone === "func"
+                      ? "#F1E7DC"
+                      : "#FBF6EF",
+                  color: tone === "sign" ? (k === "-" ? NEGATIVE : POSITIVE) : "#5A4632",
+                  fontSize: tone === "sign" ? 22 : 20,
+                  fontWeight: 800,
+                }}
+              >
+                {node || label || k}
               </button>
             );
           })}
         </div>
       </div>
 
-      <div style={{ padding: "0 18px 26px" }}>
+      {/* ---- 原因／備註 ---- */}
+      <div style={{ padding: "14px 18px 0" }}>
+        <input
+          placeholder="原因／備註（選填）"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          style={{ width: "100%", boxSizing: "border-box", border: "2px solid #F1E7DC", borderRadius: 12, padding: "12px 14px", fontSize: 15, outline: "none", background: "#fff" }}
+        />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              onClick={() => setNote(s)}
+              style={{ border: "none", borderRadius: 14, padding: "6px 11px", background: "#F1E7DC", color: "#8A7457", fontSize: 12.5, fontWeight: 700 }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
         <button
           onClick={save}
           disabled={submitting || !amount}
           style={{
             width: "100%",
+            marginTop: 12,
             border: "none",
             borderRadius: 14,
-            padding: 14,
+            padding: 15,
             background: accent,
             color: "#fff",
             fontWeight: 800,
             fontSize: 16,
-            opacity: submitting || !amount ? 0.5 : 1,
+            opacity: submitting || !amount ? 0.45 : 1,
           }}
         >
-          {submitting ? "記錄中..." : "儲存這筆"}
+          {submitting ? "記錄中..." : `儲存 ${sign === "-" ? "−" : "+"}${amount}${unit}`}
         </button>
+
+        {lastSaved && (
+          <div style={{ textAlign: "center", color: POSITIVE, fontWeight: 700, fontSize: 13, marginTop: 8 }}>✅ {lastSaved}</div>
+        )}
+      </div>
+
+      {/* ---- 相關紀錄 ---- */}
+      <div style={{ margin: "20px 14px 0", background: "#fff", borderRadius: 20, padding: "14px 14px 16px" }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: "#8A7457", marginBottom: 10 }}>
+          {kid.name} 最近的{historyLabel}紀錄
+        </div>
+        <TransactionList transactions={tabHistory.slice(0, 20)} />
       </div>
     </div>
   );
 }
-
-const keyStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "14px 0",
-  borderRadius: 12,
-  border: "none",
-  background: "#fff",
-  fontSize: 19,
-  fontWeight: 700,
-  color: "#5A4632",
-};
