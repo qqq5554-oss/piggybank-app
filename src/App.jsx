@@ -11,6 +11,7 @@ import QuickRecordScreen from "./components/QuickRecordScreen";
 import TodayResponsibilityScreen from "./components/TodayResponsibilityScreen";
 import ChallengeScreen from "./components/ChallengeScreen";
 import SpinWheelScreen from "./components/SpinWheelScreen";
+import FocusTimerScreen from "./components/FocusTimerScreen";
 
 // 畫面流程（家長 PIN 已取消，只留進站密碼當大門）：
 // siteLocked（進站密碼）→ home（兩張大卡片 + 常用功能）
@@ -95,6 +96,7 @@ export default function App() {
       onAction={handleAction}
       onManage={() => setScreen("manage")}
       onWheel={() => setScreen("wheel")}
+      onTimer={() => setScreen("timer")}
     />
   );
 
@@ -150,6 +152,8 @@ export default function App() {
     );
   } else if (screen === "wheel") {
     subScreen = <SpinWheelScreen wheelOptions={wheelOptions} kids={kids} onBack={goHome} refetch={refetch} />;
+  } else if (screen === "timer") {
+    subScreen = <FocusTimerScreen onBack={goHome} />;
   } else if (screen === "manage") {
     subScreen = (
       <ParentDashboard

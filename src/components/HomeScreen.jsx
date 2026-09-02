@@ -1,5 +1,5 @@
 import React from "react";
-import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3 } from "lucide-react";
+import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
@@ -21,6 +21,7 @@ export default function HomeScreen({
   onAction,
   onManage,
   onWheel,
+  onTimer,
 }) {
   return (
     <div style={{ padding: "20px 18px 40px", minHeight: "100vh", boxSizing: "border-box" }}>
@@ -29,7 +30,7 @@ export default function HomeScreen({
           <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, fontWeight: 800 }}>總覽</div>
           <div style={{ color: "#B4A392", fontSize: 12.5, marginTop: 2 }}>小小存錢筒</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button
             onClick={onWheel}
             style={{
@@ -47,6 +48,24 @@ export default function HomeScreen({
             }}
           >
             <Disc3 size={16} color="#E86A3A" /> 小轉盤
+          </button>
+          <button
+            onClick={onTimer}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              height: 38,
+              padding: "0 13px",
+              borderRadius: 12,
+              border: "none",
+              background: "#EAF8F2",
+              color: "#2A9670",
+              fontWeight: 800,
+              fontSize: 13,
+            }}
+          >
+            <Timer size={16} color="#2A9670" /> 專注鐘
           </button>
           <button
             onClick={onManage}
