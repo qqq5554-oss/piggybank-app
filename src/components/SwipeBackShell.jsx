@@ -144,7 +144,16 @@ export default function SwipeBackShell({ children, background, onBack }) {
   const transition = animating ? `transform ${ANIM_MS}ms ease-out, opacity ${ANIM_MS}ms ease-out` : "none";
 
   return (
-    <div ref={wrapRef} style={{ position: "relative", minHeight: "100vh", overflowX: "hidden" }}>
+    <div
+      ref={wrapRef}
+      style={{
+        position: "relative",
+        minHeight: "100vh",
+        overflowX: "hidden",
+        // 轉場動畫中先不收點擊，避免手指放開後補送的那一下點到別的東西
+        pointerEvents: animating ? "none" : "auto",
+      }}
+    >
       {/* 後面那層是上一頁，一開始稍微往左偏，跟著手指慢慢回到正位 */}
       {moving && (
         <div
@@ -156,6 +165,9 @@ export default function SwipeBackShell({ children, background, onBack }) {
             transform: `translateX(${-0.25 * (width - x)}px)`,
             transition,
             zIndex: 0,
+            // 背景只是轉場時的視覺，絕對不能吃到點擊：
+            // 它是位移過的首頁複本，被點到會跑到錯的頁面
+            pointerEvents: "none",
           }}
         >
           {background}

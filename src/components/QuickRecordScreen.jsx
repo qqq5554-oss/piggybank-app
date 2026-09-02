@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { X, Delete } from "lucide-react";
-import { adjustBalance, awardPoints } from "../api/client";
+import { adjustBalance, awardPoints, fetchTransactions } from "../api/client";
 import { themeOf } from "../utils/format";
+import TransactionList from "./TransactionList";
 
 const TABS = [
   { id: "expense", label: "支出" },
@@ -29,6 +30,20 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [lastSaved, setLastSaved] = useState("");
+  const [history, setHistory] = useState([]);
+
+  const loadHistory = useCallback(async (id) => {
+    if (!id) return;
+    try {
+      setHistory(await fetchTransactions(id));
+    } catch (err) {
+      console.error("讀取紀錄失敗", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory(kidId);
+  }, [kidId, loadHistory]);
 
   const kid = kids.find((k) => k.id === kidId) || kids[0];
   const theme = themeOf(kid?.theme_id);
@@ -74,6 +89,7 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
         setLastSaved(`已記錄 ${type === "income" ? "+" : "-"}${amount} 元（${kid.name}）`);
       }
       await refetch();
+      await loadHistory(kidId);
       setAmountStr("0");
       setNote("");
     } catch (e) {
@@ -93,6 +109,13 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
       </div>
     );
   }
+
+  // 每個分頁只看自己的紀錄：責任值一區、收入一區、支出（含違規扣款）一區
+  const tabHistory = history.filter((t) => {
+    if (tab === "points") return t.kind === "points";
+    if (t.kind !== "money") return false;
+    return tab === "income" ? t.type === "income" : t.type === "expense" || t.type === "penalty";
+  });
 
   const suggestions = tab === "points" ? POINTS_NOTE_SUGGESTIONS[direction] : MONEY_NOTE_SUGGESTIONS[tab];
   const unit = tab === "points" ? "⭐" : "元";
@@ -230,7 +253,12 @@ export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab 
         </div>
       </div>
 
-      <div style={{ flex: 1 }} />
+      <div style={{ flex: 1, minHeight: 90, overflowY: "auto", padding: "14px 18px 4px" }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#8A7457", marginBottom: 8 }}>
+          {kid.name} 最近的{tab === "points" ? "責任值" : tab === "income" ? "收入" : "支出"}紀錄
+        </div>
+        <TransactionList transactions={tabHistory.slice(0, 20)} />
+      </div>
 
       {lastSaved && (
         <div style={{ textAlign: "center", color: "#3DB88A", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>✅ {lastSaved}</div>

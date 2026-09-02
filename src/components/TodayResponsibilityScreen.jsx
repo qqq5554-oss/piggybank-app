@@ -1,13 +1,29 @@
-import React, { useState } from "react";
-import { ChevronLeft, Gift } from "lucide-react";
-import { toggleResponsibility as apiToggleResponsibility, redeemReward as apiRedeemReward } from "../api/client";
+import React, { useState, useEffect, useCallback } from "react";
+import { ChevronLeft, Gift, Star } from "lucide-react";
+import { toggleResponsibility as apiToggleResponsibility, redeemReward as apiRedeemReward, fetchTransactions } from "../api/client";
 import { themeOf } from "../utils/format";
+import TransactionList from "./TransactionList";
 
 // 「今日責任」獨立功能頁：上面打卡，下面用責任值兌換獎勵
 export default function TodayResponsibilityScreen({ kid, responsibilities, responsibilityLogs, rewardItems, today, onBack, refetch }) {
   const [submittingId, setSubmittingId] = useState(null);
   const [redeemingId, setRedeemingId] = useState(null);
+  const [pointsHistory, setPointsHistory] = useState([]);
   const theme = themeOf(kid.theme_id);
+
+  // 這一頁只看責任值的來龍去脈（打卡加分、家長加減分、兌換扣點）
+  const loadHistory = useCallback(async () => {
+    try {
+      const rows = await fetchTransactions(kid.id);
+      setPointsHistory(rows.filter((t) => t.kind === "points"));
+    } catch (err) {
+      console.error("讀取責任值紀錄失敗", err);
+    }
+  }, [kid.id]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const todayDatePart = today ? String(today).slice(0, 10) : null;
   const doneTodayIds = new Set(
@@ -20,6 +36,7 @@ export default function TodayResponsibilityScreen({ kid, responsibilities, respo
     try {
       await apiToggleResponsibility(kid.id, resp.id);
       await refetch();
+      await loadHistory();
     } catch (err) {
       alert(err.message || "操作失敗");
     } finally {
@@ -38,6 +55,7 @@ export default function TodayResponsibilityScreen({ kid, responsibilities, respo
     try {
       await apiRedeemReward(kid.id, item.id);
       await refetch();
+      await loadHistory();
     } catch (err) {
       alert(err.message || "兌換失敗");
     } finally {
@@ -149,6 +167,12 @@ export default function TodayResponsibilityScreen({ kid, responsibilities, respo
             );
           })}
         </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "26px 0 10px" }}>
+          <Star size={17} color="#94795F" />
+          <span style={{ fontWeight: 800, color: "#8A7457" }}>責任值紀錄</span>
+        </div>
+        <TransactionList transactions={pointsHistory.slice(0, 20)} />
       </div>
     </div>
   );

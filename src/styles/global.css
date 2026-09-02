@@ -21,6 +21,8 @@ body {
 button {
   font-family: inherit;
   cursor: pointer;
+  /* 手機上不要等 300ms 判斷雙擊，順便避免延遲補送的 ghost click 點到別頁 */
+  touch-action: manipulation;
 }
 
 input {
