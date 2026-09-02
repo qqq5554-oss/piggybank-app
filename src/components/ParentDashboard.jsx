@@ -842,17 +842,19 @@ function RewardWheelManageTab({ options, refetch }) {
       <div style={{ fontSize: 12, color: "#B4A392", marginBottom: 12, lineHeight: 1.8 }}>
         小孩把「今日責任」全部打完卡之後，可以轉一次這個轉盤，一天一次。
         建議每一格都放好事（不要有「銘謝惠顧」），⭐ 和錢留空的話就是純獎勵，
-        例如「多玩 10 分鐘」。
+        例如「多玩 10 分鐘」。「份數」決定中獎機率——想做稀有的神秘獎品，
+        就把份數填得比別人小，轉盤上那一格也會畫得比較窄。
       </div>
       <WheelOptionsEditor
         options={options}
         withRewards
-        onAdd={async ({ label, rewardPoints, rewardMoney }) => {
-          await addRewardWheelOption(label, rewardPoints, rewardMoney, options.length + 1);
+        withWeights
+        onAdd={async ({ label, rewardPoints, rewardMoney, weight }) => {
+          await addRewardWheelOption(label, rewardPoints, rewardMoney, weight, options.length + 1);
           await refetch();
         }}
-        onUpdate={async (id, { label, rewardPoints, rewardMoney }) => {
-          await updateRewardWheelOption(id, label, rewardPoints, rewardMoney);
+        onUpdate={async (id, { label, rewardPoints, rewardMoney, weight }) => {
+          await updateRewardWheelOption(id, label, rewardPoints, rewardMoney, weight);
           await refetch();
         }}
         onDelete={async (id) => {

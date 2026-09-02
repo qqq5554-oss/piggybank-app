@@ -353,3 +353,13 @@ set preset_id = (select id from wheel_presets order by sort_order, created_at li
 where preset_id is null;
 
 alter table wheel_options alter column preset_id set not null;
+
+-- ============================================================
+-- Phase 11 追加（獎勵轉盤的中獎機率）
+-- ⚠️ 可以直接在既有資料庫上執行
+-- ============================================================
+
+-- weight 是「這一格佔幾份」：預設 1 份，想做稀有的神秘獎品就填
+-- 比別人小的份數。中獎機率 = 這格份數 ÷ 全部份數，扇形也會照
+-- 份數畫寬窄，看起來就知道哪一格難中。
+alter table reward_wheel_options add column if not exists weight numeric not null default 1;

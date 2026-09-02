@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { pickWeightedIndex } from "../lib/weightedPick.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
@@ -431,8 +432,10 @@ export default async function handler(req, res) {
         const options = await sql`select * from reward_wheel_options order by sort_order, created_at`;
         if (options.length === 0) return res.status(400).json({ error: "還沒有設定獎勵轉盤的格子" });
 
-        // 抽獎在後端決定，重新整理也沒辦法重抽
-        const win = options[Math.floor(Math.random() * options.length)];
+        // 加權抽獎：weight 就是「這格佔幾份」，份數多的比較容易中。
+        // 抽獎在後端決定，重新整理也沒辦法重抽。
+        const winIndex = pickWeightedIndex(options.map((o) => o.weight ?? 1));
+        const win = options[winIndex];
         const points = Number(win.reward_points) || 0;
         const money = Number(win.reward_money) || 0;
         // 有給⭐或錢的格子直接入帳；其他的（例如「今天你選晚餐」）
@@ -482,18 +485,21 @@ export default async function handler(req, res) {
         break;
       }
       case "add_reward_wheel_option": {
-        const { label, rewardPoints = 0, rewardMoney = 0, sortOrder = 0 } = payload;
+        const { label, rewardPoints = 0, rewardMoney = 0, weight = 1, sortOrder = 0 } = payload;
         await sql`
-          insert into reward_wheel_options (label, reward_points, reward_money, sort_order)
-          values (${label}, ${rewardPoints}, ${rewardMoney}, ${sortOrder})
+          insert into reward_wheel_options (label, reward_points, reward_money, weight, sort_order)
+          values (${label}, ${rewardPoints}, ${rewardMoney}, ${Math.max(0.01, Number(weight) || 1)}, ${sortOrder})
         `;
         break;
       }
       case "update_reward_wheel_option": {
-        const { optionId, label, rewardPoints = 0, rewardMoney = 0 } = payload;
+        const { optionId, label, rewardPoints = 0, rewardMoney = 0, weight = 1 } = payload;
         await sql`
           update reward_wheel_options
-          set label = ${label}, reward_points = ${rewardPoints}, reward_money = ${rewardMoney}
+          set label = ${label},
+              reward_points = ${rewardPoints},
+              reward_money = ${rewardMoney},
+              weight = ${Math.max(0.01, Number(weight) || 1)}
           where id = ${optionId}
         `;
         break;

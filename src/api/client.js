@@ -146,10 +146,10 @@ export const reorderWheelOptions = (ids) => post("reorder_wheel_options", { ids 
 
 // ------- 每日獎勵轉盤 -------
 export const spinRewardWheel = (kidId) => post("spin_reward_wheel", { kidId });
-export const addRewardWheelOption = (label, rewardPoints, rewardMoney, sortOrder) =>
-  post("add_reward_wheel_option", { label, rewardPoints, rewardMoney, sortOrder });
-export const updateRewardWheelOption = (optionId, label, rewardPoints, rewardMoney) =>
-  post("update_reward_wheel_option", { optionId, label, rewardPoints, rewardMoney });
+export const addRewardWheelOption = (label, rewardPoints, rewardMoney, weight, sortOrder) =>
+  post("add_reward_wheel_option", { label, rewardPoints, rewardMoney, weight, sortOrder });
+export const updateRewardWheelOption = (optionId, label, rewardPoints, rewardMoney, weight) =>
+  post("update_reward_wheel_option", { optionId, label, rewardPoints, rewardMoney, weight });
 export const deleteRewardWheelOption = (optionId) => post("delete_reward_wheel_option", { optionId });
 export const reorderRewardWheelOptions = (ids) => post("reorder_reward_wheel_options", { ids });
 

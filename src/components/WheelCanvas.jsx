@@ -11,16 +11,30 @@ const pointAt = (angleDeg, radius) => {
   return [SIZE / 2 + radius * Math.cos(rad), SIZE / 2 + radius * Math.sin(rad)];
 };
 
+// 每一格的角度：weight 就是「這格佔幾份」，沒設就是 1 份。
+// 機率高的格子畫得寬、稀有的畫得窄，轉盤看起來才誠實。
+export function sliceAngles(options) {
+  const weights = options.map((o) => Math.max(0.01, Number(o.weight ?? 1)));
+  const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0;
+  return options.map((_, i) => {
+    const sweep = (weights[i] / totalWeight) * 360;
+    const start = acc;
+    acc += sweep;
+    return { start, sweep, mid: start + sweep / 2, pct: weights[i] / totalWeight };
+  });
+}
+
 // 給定要中的格子，算出轉盤要轉到的新角度（含多轉幾圈與格內隨機偏移），
 // 這樣畫面停下來的位置一定跟結果一致
-export function rotationForIndex(currentRotation, index, count) {
-  const slice = 360 / count;
-  const centerAngle = index * slice + slice / 2;
-  const jitter = (Math.random() - 0.5) * slice * 0.7;
+export function rotationForIndex(currentRotation, index, options) {
+  const slices = sliceAngles(options);
+  const slice = slices[index] || { mid: 0, sweep: 360 };
+  const jitter = (Math.random() - 0.5) * slice.sweep * 0.7;
   const turns = 7 + Math.floor(Math.random() * 4);
 
   // 轉盤順時針轉 R 度之後，指針（正上方）指到的是盤面上 -R 度的位置
-  const targetMod = ((-(centerAngle + jitter) % 360) + 360) % 360;
+  const targetMod = ((-(slice.mid + jitter) % 360) + 360) % 360;
   const currentMod = ((currentRotation % 360) + 360) % 360;
   const delta = (((targetMod - currentMod) % 360) + 360) % 360;
   return currentRotation + turns * 360 + delta;
@@ -29,7 +43,7 @@ export function rotationForIndex(currentRotation, index, count) {
 // 純畫面：轉盤本體加上方的指針
 export default function WheelCanvas({ options, rotation, spinning, maxWidth = SIZE }) {
   const n = options.length;
-  const slice = n > 0 ? 360 / n : 360;
+  const slices = sliceAngles(options);
 
   return (
     <div style={{ position: "relative", width: maxWidth, maxWidth: "100%" }}>
@@ -69,13 +83,15 @@ export default function WheelCanvas({ options, rotation, spinning, maxWidth = SI
           </text>
         )}
         {options.map((opt, i) => {
-          const start = i * slice;
+          const { start, sweep, mid } = slices[i];
           const [x1, y1] = pointAt(start, R);
-          const [x2, y2] = pointAt(start + slice, R);
-          const largeArc = slice > 180 ? 1 : 0;
-          const mid = start + slice / 2;
+          const [x2, y2] = pointAt(start + sweep, R);
+          const largeArc = sweep > 180 ? 1 : 0;
           const [tx, ty] = pointAt(mid, R * 0.62);
           const color = SLICE_COLORS[i % SLICE_COLORS.length];
+          // 很窄的格子塞不下長字，字級縮小、字數也砍短
+          const narrow = sweep < 26;
+          const maxChars = narrow ? 4 : sweep < 40 ? 6 : 9;
           return (
             <g key={opt.id}>
               {/* 只有一個選項時畫整個圓，不然扇形會退化成一條線 */}
@@ -94,12 +110,12 @@ export default function WheelCanvas({ options, rotation, spinning, maxWidth = SI
                 y={ty}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={n > 8 ? 10.5 : 13}
+                fontSize={narrow ? 9.5 : n > 8 ? 10.5 : 13}
                 fontWeight="800"
                 fill="#5A4632"
                 transform={`rotate(${mid} ${tx} ${ty})`}
               >
-                {opt.label.length > 9 ? opt.label.slice(0, 9) + "…" : opt.label}
+                {opt.label.length > maxChars ? opt.label.slice(0, maxChars) + "…" : opt.label}
               </text>
             </g>
           );

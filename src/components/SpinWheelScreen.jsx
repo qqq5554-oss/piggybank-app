@@ -93,7 +93,7 @@ export default function SpinWheelScreen({ wheelOptions, wheelPresets, kids, onBa
 
     // 先隨機抽中哪一格，再回推要轉到的角度，畫面停下來的位置一定跟結果一致
     const index = Math.floor(Math.random() * n);
-    setRotation((prev) => rotationForIndex(prev, index, n));
+    setRotation((prev) => rotationForIndex(prev, index, options));
 
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {

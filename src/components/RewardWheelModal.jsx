@@ -20,7 +20,7 @@ export default function RewardWheelModal({ kid, options, onClose, refetch }) {
     try {
       const { optionId, label, coupon } = await spinRewardWheel(kid.id);
       const index = Math.max(0, options.findIndex((o) => o.id === optionId));
-      setRotation((prev) => rotationForIndex(prev, index, options.length));
+      setRotation((prev) => rotationForIndex(prev, index, options));
 
       clearTimeout(timerRef.current);
       timerRef.current = setTimeout(async () => {
