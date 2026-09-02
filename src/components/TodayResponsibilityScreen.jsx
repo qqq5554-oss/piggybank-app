@@ -3,12 +3,24 @@ import { ChevronLeft, Gift, Star } from "lucide-react";
 import { toggleResponsibility as apiToggleResponsibility, redeemReward as apiRedeemReward, fetchTransactions } from "../api/client";
 import { themeOf } from "../utils/format";
 import TransactionList from "./TransactionList";
+import RewardWheelModal from "./RewardWheelModal";
 
 // 「今日責任」獨立功能頁：上面打卡，下面用責任值兌換獎勵
-export default function TodayResponsibilityScreen({ kid, responsibilities, responsibilityLogs, rewardItems, today, onBack, refetch }) {
+export default function TodayResponsibilityScreen({
+  kid,
+  responsibilities,
+  responsibilityLogs,
+  rewardItems,
+  rewardWheelOptions = [],
+  todaySpin = null,
+  today,
+  onBack,
+  refetch,
+}) {
   const [submittingId, setSubmittingId] = useState(null);
   const [redeemingId, setRedeemingId] = useState(null);
   const [pointsHistory, setPointsHistory] = useState([]);
+  const [showWheel, setShowWheel] = useState(false);
   const theme = themeOf(kid.theme_id);
 
   // 這一頁只看責任值的來龍去脈（打卡加分、家長加減分、兌換扣點）
@@ -30,6 +42,7 @@ export default function TodayResponsibilityScreen({ kid, responsibilities, respo
     responsibilityLogs.filter((l) => String(l.log_date).slice(0, 10) === todayDatePart).map((l) => l.responsibility_id)
   );
   const doneCount = responsibilities.filter((r) => doneTodayIds.has(r.id)).length;
+  const allDone = responsibilities.length > 0 && doneCount === responsibilities.length;
 
   const toggle = async (resp) => {
     setSubmittingId(resp.id);
@@ -128,6 +141,45 @@ export default function TodayResponsibilityScreen({ kid, responsibilities, respo
           })}
         </div>
 
+        {allDone && (
+          <div style={{ marginBottom: 26 }}>
+            {todaySpin ? (
+              <div
+                style={{
+                  background: "#FFF6F0",
+                  border: "2px solid #FFE1CC",
+                  borderRadius: 16,
+                  padding: "14px 16px",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontSize: 12.5, color: "#B4A392", fontWeight: 700 }}>🎡 今天的轉盤獎勵</div>
+                <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 20, fontWeight: 800, color: "#E86A3A", marginTop: 2 }}>
+                  {todaySpin.label}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#C4B4A0", marginTop: 4 }}>明天完成責任後可以再轉一次</div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowWheel(true)}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  borderRadius: 16,
+                  padding: 16,
+                  background: "#E86A3A",
+                  color: "#fff",
+                  fontWeight: 800,
+                  fontSize: 16,
+                  boxShadow: "0 4px 14px rgba(232,106,58,.35)",
+                }}
+              >
+                🎡 今天的獎勵轉盤
+              </button>
+            )}
+          </div>
+        )}
+
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
           <Gift size={17} color="#94795F" />
           <span style={{ fontWeight: 800, color: "#8A7457" }}>用責任值兌換獎勵</span>
@@ -174,6 +226,15 @@ export default function TodayResponsibilityScreen({ kid, responsibilities, respo
         </div>
         <TransactionList transactions={pointsHistory.slice(0, 20)} />
       </div>
+
+      {showWheel && (
+        <RewardWheelModal
+          kid={kid}
+          options={rewardWheelOptions}
+          onClose={() => setShowWheel(false)}
+          refetch={refetch}
+        />
+      )}
     </div>
   );
 }

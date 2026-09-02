@@ -270,3 +270,43 @@ insert into wheel_options (label, sort_order)
 select v.label, v.sort_order
 from (values ('洗碗', 1), ('倒垃圾', 2), ('摺衣服', 3), ('掃地', 4)) as v(label, sort_order)
 where not exists (select 1 from wheel_options);
+
+-- ============================================================
+-- Phase 8 追加（每日獎勵轉盤）
+-- ⚠️ 同樣可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 獎勵轉盤的格子（跟「決定事情」用的 wheel_options 分開的另一組）
+-- 每一格都應該是好事，只是大小不同；不要放「銘謝惠顧」，
+-- 小孩已經把責任做完了，轉到空白只會讓努力被抵消掉。
+create table if not exists reward_wheel_options (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  reward_points numeric not null default 0,
+  reward_money numeric not null default 0,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- 每個小孩每天只能轉一次，靠 unique 擋掉重複
+create table if not exists reward_spins (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  spin_date date not null,
+  option_id uuid references reward_wheel_options(id) on delete set null,
+  label text not null,
+  created_at timestamptz not null default now(),
+  unique (kid_id, spin_date)
+);
+
+insert into reward_wheel_options (label, reward_points, reward_money, sort_order)
+select v.label, v.p, v.m, v.o
+from (values
+  ('多玩 10 分鐘', 0, 0, 1),
+  ('今天你選晚餐', 0, 0, 2),
+  ('免做一次家事', 0, 0, 3),
+  ('+1 責任值', 1, 0, 4),
+  ('睡前多一個故事', 0, 0, 5),
+  ('選明天的衣服', 0, 0, 6)
+) as v(label, p, m, o)
+where not exists (select 1 from reward_wheel_options);

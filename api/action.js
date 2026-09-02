@@ -406,6 +406,87 @@ export default async function handler(req, res) {
         break;
       }
 
+      // ------- 每日獎勵轉盤 -------
+      case "spin_reward_wheel": {
+        const { kidId } = payload;
+
+        // 條件一：今天的責任要全部完成。這裡自己查資料庫確認，
+        // 不能只信前端傳來的狀態。
+        const progress = await sql`
+          select count(r.id) as total, count(rl.id) as done
+          from responsibilities r
+          left join responsibility_logs rl
+            on rl.responsibility_id = r.id and rl.kid_id = ${kidId} and rl.log_date = current_date
+          where r.kid_id = ${kidId}
+        `;
+        const total = Number(progress[0]?.total || 0);
+        const done = Number(progress[0]?.done || 0);
+        if (total === 0) return res.status(400).json({ error: "還沒有設定今日責任" });
+        if (done < total) return res.status(400).json({ error: "今天的責任還沒有全部完成喔" });
+
+        // 條件二：一天只能轉一次
+        const already = await sql`select label from reward_spins where kid_id = ${kidId} and spin_date = current_date`;
+        if (already[0]) return res.status(400).json({ error: `今天已經轉過了（${already[0].label}）` });
+
+        const options = await sql`select * from reward_wheel_options order by sort_order, created_at`;
+        if (options.length === 0) return res.status(400).json({ error: "還沒有設定獎勵轉盤的格子" });
+
+        // 抽獎在後端決定，重新整理也沒辦法重抽
+        const win = options[Math.floor(Math.random() * options.length)];
+        const queries = [
+          sql`
+            insert into reward_spins (kid_id, spin_date, option_id, label)
+            values (${kidId}, current_date, ${win.id}, ${win.label})
+          `,
+        ];
+        if (Number(win.reward_points) > 0) {
+          queries.push(sql`
+            insert into character_point_logs (kid_id, delta, reason)
+            values (${kidId}, ${win.reward_points}, ${"轉盤獎勵：" + win.label})
+          `);
+          queries.push(sql`update kids set character_points = character_points + ${win.reward_points} where id = ${kidId}`);
+        }
+        if (Number(win.reward_money) > 0) {
+          queries.push(sql`
+            insert into transactions (kid_id, type, amount, note)
+            values (${kidId}, 'income', ${win.reward_money}, ${"轉盤獎勵：" + win.label})
+          `);
+          queries.push(sql`update kids set balance = balance + ${win.reward_money} where id = ${kidId}`);
+        }
+        await sql.transaction(queries);
+
+        return res.status(200).json({ ok: true, optionId: win.id, label: win.label });
+      }
+      case "add_reward_wheel_option": {
+        const { label, rewardPoints = 0, rewardMoney = 0, sortOrder = 0 } = payload;
+        await sql`
+          insert into reward_wheel_options (label, reward_points, reward_money, sort_order)
+          values (${label}, ${rewardPoints}, ${rewardMoney}, ${sortOrder})
+        `;
+        break;
+      }
+      case "update_reward_wheel_option": {
+        const { optionId, label, rewardPoints = 0, rewardMoney = 0 } = payload;
+        await sql`
+          update reward_wheel_options
+          set label = ${label}, reward_points = ${rewardPoints}, reward_money = ${rewardMoney}
+          where id = ${optionId}
+        `;
+        break;
+      }
+      case "delete_reward_wheel_option": {
+        await sql`delete from reward_wheel_options where id = ${payload.optionId}`;
+        break;
+      }
+      case "reorder_reward_wheel_options": {
+        // 前端傳來排好的 id 陣列，依序寫回 sort_order
+        const ids = payload.ids || [];
+        await sql.transaction(
+          ids.map((id, i) => sql`update reward_wheel_options set sort_order = ${i + 1} where id = ${id}`)
+        );
+        break;
+      }
+
       // ------- 小轉盤 -------
       case "add_wheel_option": {
         const { label, sortOrder = 0 } = payload;
@@ -418,6 +499,13 @@ export default async function handler(req, res) {
       }
       case "delete_wheel_option": {
         await sql`delete from wheel_options where id = ${payload.optionId}`;
+        break;
+      }
+      case "reorder_wheel_options": {
+        const ids = payload.ids || [];
+        await sql.transaction(
+          ids.map((id, i) => sql`update wheel_options set sort_order = ${i + 1} where id = ${id}`)
+        );
         break;
       }
 

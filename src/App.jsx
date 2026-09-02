@@ -38,6 +38,8 @@ export default function App() {
     rewardItems,
     challenges,
     wheelOptions,
+    rewardWheelOptions,
+    rewardSpins,
     vapidPublicKey,
     today,
     loading,
@@ -103,6 +105,8 @@ export default function App() {
         responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
         responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
         rewardItems={rewardItems}
+        rewardWheelOptions={rewardWheelOptions}
+        todaySpin={rewardSpins.find((s) => s.kid_id === activeKid.id) || null}
         today={today}
         onBack={goHome}
         refetch={refetch}
@@ -155,6 +159,7 @@ export default function App() {
         allowanceRules={allowanceRules}
         expenseRules={expenseRules}
         rewardItems={rewardItems}
+        rewardWheelOptions={rewardWheelOptions}
         vapidPublicKey={vapidPublicKey}
         pin={null}
         onBack={goHome}

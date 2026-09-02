@@ -35,6 +35,8 @@ import {
 } from "../api/client";
 import { currency, formatDate, themeOf, KID_THEMES, AVATARS } from "../utils/format";
 import { subscribePush, unsubscribePush, getExistingSubscription, pushSupported, isIOS, isStandalone } from "../utils/push";
+import WheelOptionsEditor from "./WheelOptionsEditor";
+import { addRewardWheelOption, updateRewardWheelOption, deleteRewardWheelOption, reorderRewardWheelOptions } from "../api/client";
 import TransactionList from "./TransactionList";
 
 const WEEKDAY_LABELS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -48,6 +50,7 @@ export default function ParentDashboard({
   allowanceRules,
   expenseRules,
   rewardItems,
+  rewardWheelOptions = [],
   vapidPublicKey,
   pin,
   onBack,
@@ -75,6 +78,7 @@ export default function ParentDashboard({
           { id: "responsibilities", label: "生活責任" },
           { id: "missions", label: "特殊任務" },
           { id: "rewards", label: "兌換清單" },
+          { id: "rewardWheel", label: "獎勵轉盤" },
           { id: "recurring", label: "定期收支" },
           { id: "settings", label: "設定" },
         ].map((t) => (
@@ -104,6 +108,7 @@ export default function ParentDashboard({
         {tab === "responsibilities" && <ResponsibilitiesManageTab kids={kids} responsibilities={responsibilities} pin={pin} refetch={refetch} />}
         {tab === "missions" && <MissionsManageTab kids={kids} missions={missions} pin={pin} refetch={refetch} />}
         {tab === "rewards" && <RewardsManageTab rewardItems={rewardItems} pin={pin} refetch={refetch} />}
+        {tab === "rewardWheel" && <RewardWheelManageTab options={rewardWheelOptions} refetch={refetch} />}
         {tab === "recurring" && (
           <RecurringManageTab kids={kids} allowanceRules={allowanceRules} expenseRules={expenseRules} pin={pin} refetch={refetch} />
         )}
@@ -826,6 +831,39 @@ function RewardsManageTab({ rewardItems, pin, refetch }) {
       <button onClick={add} disabled={adding} style={{ ...primaryBtnStyle, background: "#94795F", marginTop: 10, opacity: adding ? 0.6 : 1 }}>
         {adding ? "新增中..." : "新增"}
       </button>
+    </div>
+  );
+}
+
+// ---------------- 每日獎勵轉盤管理 ----------------
+function RewardWheelManageTab({ options, refetch }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: "#B4A392", marginBottom: 12, lineHeight: 1.8 }}>
+        小孩把「今日責任」全部打完卡之後，可以轉一次這個轉盤，一天一次。
+        建議每一格都放好事（不要有「銘謝惠顧」），⭐ 和錢留空的話就是純獎勵，
+        例如「多玩 10 分鐘」。
+      </div>
+      <WheelOptionsEditor
+        options={options}
+        withRewards
+        onAdd={async ({ label, rewardPoints, rewardMoney }) => {
+          await addRewardWheelOption(label, rewardPoints, rewardMoney, options.length + 1);
+          await refetch();
+        }}
+        onUpdate={async (id, { label, rewardPoints, rewardMoney }) => {
+          await updateRewardWheelOption(id, label, rewardPoints, rewardMoney);
+          await refetch();
+        }}
+        onDelete={async (id) => {
+          await deleteRewardWheelOption(id);
+          await refetch();
+        }}
+        onReorder={async (ids) => {
+          await reorderRewardWheelOptions(ids);
+          await refetch();
+        }}
+      />
     </div>
   );
 }
