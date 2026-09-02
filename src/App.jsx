@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useKidsData } from "./hooks/useKidsData";
-import { useSwipeBack } from "./hooks/useSwipeBack";
+import SwipeBackShell from "./components/SwipeBackShell";
 import { getSitePin, clearSitePin } from "./api/client";
 import { registerServiceWorker } from "./utils/push";
 import HomeScreen from "./components/HomeScreen";
@@ -52,8 +52,6 @@ export default function App() {
   }, [siteUnlocked]);
 
   const goHome = useCallback(() => setScreen("home"), []);
-  // 手勢右滑回首頁（首頁本身沒有上一頁，所以不啟用）
-  useSwipeBack(goHome, screen !== "home");
 
   if (!siteUnlocked) {
     return <SiteAccessScreen onSuccess={() => setSiteUnlocked(true)} />;
@@ -78,85 +76,96 @@ export default function App() {
     setScreen("quickRecord");
   };
 
+  const homeScreen = (
+    <HomeScreen
+      kids={kids}
+      responsibilities={responsibilities}
+      responsibilityLogs={responsibilityLogs}
+      challenges={challenges}
+      today={today}
+      onSelectKid={(id) => {
+        setActiveKidId(id);
+        setScreen("kidDetail");
+      }}
+      onAction={handleAction}
+      onManage={() => setScreen("manage")}
+    />
+  );
+
+  let subScreen = null;
+  if (screen === "todayResponsibility" && activeKid) {
+    subScreen = (
+      <TodayResponsibilityScreen
+        kid={activeKid}
+        responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
+        responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
+        rewardItems={rewardItems}
+        today={today}
+        onBack={goHome}
+        refetch={refetch}
+      />
+    );
+  } else if (screen === "challenge" && activeKid) {
+    subScreen = (
+      <ChallengeScreen
+        kid={activeKid}
+        challenges={challenges.filter((c) => c.kid_id === activeKid.id)}
+        onBack={goHome}
+        refetch={refetch}
+      />
+    );
+  } else if (screen === "quickRecord") {
+    subScreen = (
+      <QuickRecordScreen
+        kids={kids}
+        pin={null}
+        initialKidId={activeKidId}
+        initialTab={quickTab}
+        onClose={goHome}
+        refetch={refetch}
+      />
+    );
+  } else if (screen === "kidDetail" && activeKid) {
+    subScreen = (
+      <KidDetailScreen
+        kid={activeKid}
+        chores={chores}
+        responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
+        responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
+        missions={missions.filter((m) => m.kid_id === activeKid.id)}
+        rewardItems={rewardItems}
+        today={today}
+        onBack={goHome}
+        refetch={refetch}
+      />
+    );
+  } else if (screen === "manage") {
+    subScreen = (
+      <ParentDashboard
+        kids={kids}
+        chores={chores}
+        pendingChores={pendingChores}
+        responsibilities={responsibilities}
+        missions={missions}
+        allowanceRules={allowanceRules}
+        expenseRules={expenseRules}
+        rewardItems={rewardItems}
+        vapidPublicKey={vapidPublicKey}
+        pin={null}
+        onBack={goHome}
+        refetch={refetch}
+      />
+    );
+  }
+
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh" }}>
-      {screen === "home" && (
-        <HomeScreen
-          kids={kids}
-          responsibilities={responsibilities}
-          responsibilityLogs={responsibilityLogs}
-          challenges={challenges}
-          today={today}
-          onSelectKid={(id) => {
-            setActiveKidId(id);
-            setScreen("kidDetail");
-          }}
-          onAction={handleAction}
-          onManage={() => setScreen("manage")}
-        />
-      )}
-
-      {screen === "todayResponsibility" && activeKid && (
-        <TodayResponsibilityScreen
-          kid={activeKid}
-          responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
-          responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
-          rewardItems={rewardItems}
-          today={today}
-          onBack={goHome}
-          refetch={refetch}
-        />
-      )}
-
-      {screen === "challenge" && activeKid && (
-        <ChallengeScreen
-          kid={activeKid}
-          challenges={challenges.filter((c) => c.kid_id === activeKid.id)}
-          onBack={goHome}
-          refetch={refetch}
-        />
-      )}
-
-      {screen === "quickRecord" && (
-        <QuickRecordScreen
-          kids={kids}
-          pin={null}
-          initialKidId={activeKidId}
-          initialTab={quickTab}
-          onClose={goHome}
-          refetch={refetch}
-        />
-      )}
-
-      {screen === "kidDetail" && activeKid && (
-        <KidDetailScreen
-          kid={activeKid}
-          chores={chores}
-          responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
-          responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
-          missions={missions.filter((m) => m.kid_id === activeKid.id)}
-          rewardItems={rewardItems}
-          today={today}
-          onBack={goHome}
-          refetch={refetch}
-        />
-      )}
-
-      {screen === "manage" && (
-        <ParentDashboard
-          kids={kids}
-          chores={chores}
-          pendingChores={pendingChores}
-          responsibilities={responsibilities}
-          missions={missions}
-          allowanceRules={allowanceRules}
-          expenseRules={expenseRules}
-          rewardItems={rewardItems}
-          vapidPublicKey={vapidPublicKey}
-          pin={null}
-          onBack={goHome}
-          refetch={refetch}
-        />
+    <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh", position: "relative", overflowX: "hidden" }}>
+      {subScreen ? (
+        <SwipeBackShell background={homeScreen} onBack={goHome}>
+          {subScreen}
+        </SwipeBackShell>
+      ) : (
+        homeScreen
       )}
     </div>
   );
