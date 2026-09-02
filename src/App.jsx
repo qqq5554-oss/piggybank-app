@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useKidsData } from "./hooks/useKidsData";
+import { useSwipeBack } from "./hooks/useSwipeBack";
 import { getSitePin, clearSitePin } from "./api/client";
 import { registerServiceWorker } from "./utils/push";
 import HomeScreen from "./components/HomeScreen";
@@ -50,6 +51,10 @@ export default function App() {
     if (siteUnlocked) registerServiceWorker();
   }, [siteUnlocked]);
 
+  const goHome = useCallback(() => setScreen("home"), []);
+  // 手勢右滑回首頁（首頁本身沒有上一頁，所以不啟用）
+  useSwipeBack(goHome, screen !== "home");
+
   if (!siteUnlocked) {
     return <SiteAccessScreen onSuccess={() => setSiteUnlocked(true)} />;
   }
@@ -63,7 +68,6 @@ export default function App() {
   }
 
   const activeKid = kids.find((k) => k.id === activeKidId) || null;
-  const goHome = () => setScreen("home");
 
   // 首頁卡片上的常用功能按鈕
   const handleAction = (kidId, actionId) => {
