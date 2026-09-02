@@ -327,3 +327,29 @@ create table if not exists coupons (
   created_at timestamptz not null default now(),
   used_at timestamptz
 );
+
+-- ============================================================
+-- Phase 10 追加（小轉盤可以存多組不同內容）
+-- ⚠️ 這段是冪等的，可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 轉盤組：例如「誰洗碗」「晚餐吃什麼」「假日活動」各存一組
+create table if not exists wheel_presets (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table wheel_options add column if not exists preset_id uuid references wheel_presets(id) on delete cascade;
+
+-- 沒有任何轉盤組的話先建一組，把現有的選項通通歸進去
+insert into wheel_presets (name, sort_order)
+select '我的轉盤', 1
+where not exists (select 1 from wheel_presets);
+
+update wheel_options
+set preset_id = (select id from wheel_presets order by sort_order, created_at limit 1)
+where preset_id is null;
+
+alter table wheel_options alter column preset_id set not null;

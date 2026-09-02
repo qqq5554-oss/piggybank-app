@@ -46,6 +46,7 @@ export default function App() {
     rewardItems,
     challenges,
     wheelOptions,
+    wheelPresets,
     rewardWheelOptions,
     rewardSpins,
     coupons,
@@ -161,7 +162,9 @@ export default function App() {
       />
     );
   } else if (screen === "wheel") {
-    subScreen = <SpinWheelScreen wheelOptions={wheelOptions} kids={kids} onBack={goHome} refetch={refetch} />;
+    subScreen = (
+      <SpinWheelScreen wheelOptions={wheelOptions} wheelPresets={wheelPresets} kids={kids} onBack={goHome} refetch={refetch} />
+    );
   } else if (screen === "timer") {
     subScreen = <FocusTimerScreen timer={timer} onBack={goHome} />;
   } else if (screen === "manage") {

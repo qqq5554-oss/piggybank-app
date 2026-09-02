@@ -136,7 +136,10 @@ export const savePushSubscription = (sub, label) =>
 export const deletePushSubscription = (endpoint) => post("delete_push_subscription", { endpoint });
 
 // ------- 小轉盤 -------
-export const addWheelOption = (label, sortOrder) => post("add_wheel_option", { label, sortOrder });
+export const addWheelOption = (presetId, label, sortOrder) => post("add_wheel_option", { presetId, label, sortOrder });
+export const addWheelPreset = (name) => post("add_wheel_preset", { name });
+export const renameWheelPreset = (presetId, name) => post("rename_wheel_preset", { presetId, name });
+export const deleteWheelPreset = (presetId) => post("delete_wheel_preset", { presetId });
 export const updateWheelOption = (optionId, label) => post("update_wheel_option", { optionId, label });
 export const deleteWheelOption = (optionId) => post("delete_wheel_option", { optionId });
 export const reorderWheelOptions = (ids) => post("reorder_wheel_options", { ids });

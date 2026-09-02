@@ -513,8 +513,27 @@ export default async function handler(req, res) {
 
       // ------- 小轉盤 -------
       case "add_wheel_option": {
-        const { label, sortOrder = 0 } = payload;
-        await sql`insert into wheel_options (label, sort_order) values (${label}, ${sortOrder})`;
+        const { presetId, label, sortOrder = 0 } = payload;
+        await sql`insert into wheel_options (preset_id, label, sort_order) values (${presetId}, ${label}, ${sortOrder})`;
+        break;
+      }
+      case "add_wheel_preset": {
+        const rows = await sql`
+          insert into wheel_presets (name, sort_order)
+          values (${payload.name}, coalesce((select max(sort_order) + 1 from wheel_presets), 1))
+          returning id, name
+        `;
+        return res.status(200).json({ ok: true, preset: rows[0] });
+      }
+      case "rename_wheel_preset": {
+        await sql`update wheel_presets set name = ${payload.name} where id = ${payload.presetId}`;
+        break;
+      }
+      case "delete_wheel_preset": {
+        // 最後一組不給刪，不然畫面上會完全沒有轉盤可以用
+        const count = await sql`select count(*)::int as n from wheel_presets`;
+        if (count[0].n <= 1) return res.status(400).json({ error: "至少要保留一組轉盤" });
+        await sql`delete from wheel_presets where id = ${payload.presetId}`;
         break;
       }
       case "update_wheel_option": {

@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "網站密碼錯誤" });
     }
 
-    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, rewardWheelOptions, rewardSpins, coupons, todayRows] = await Promise.all([
+    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, wheelPresets, rewardWheelOptions, rewardSpins, coupons, todayRows] = await Promise.all([
       sql`select * from kids order by created_at`,
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
@@ -29,6 +29,7 @@ export default async function handler(req, res) {
       sql`select * from reward_items order by points_cost, created_at`,
       sql`select * from challenges order by status, created_at`,
       sql`select * from wheel_options order by sort_order, created_at`,
+      sql`select * from wheel_presets order by sort_order, created_at`,
       sql`select * from reward_wheel_options order by sort_order, created_at`,
       sql`select kid_id, label, to_char(spin_date, 'YYYY-MM-DD') as spin_date from reward_spins where spin_date = current_date`,
       sql`select * from coupons where status = 'unused' or used_at > now() - interval '7 days' order by created_at desc`,
@@ -52,6 +53,7 @@ export default async function handler(req, res) {
       rewardItems,
       challenges,
       wheelOptions,
+      wheelPresets,
       rewardWheelOptions,
       rewardSpins,
       coupons,

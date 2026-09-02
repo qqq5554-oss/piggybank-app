@@ -21,6 +21,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
   const [rewardItems, setRewardItems] = useState([]);
   const [challenges, setChallenges] = useState([]);
   const [wheelOptions, setWheelOptions] = useState([]);
+  const [wheelPresets, setWheelPresets] = useState([]);
   const [rewardWheelOptions, setRewardWheelOptions] = useState([]);
   const [rewardSpins, setRewardSpins] = useState([]);
   const [coupons, setCoupons] = useState([]);
@@ -46,6 +47,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
       setRewardItems(data.rewardItems);
       setChallenges(data.challenges);
       setWheelOptions(data.wheelOptions || []);
+      setWheelPresets(data.wheelPresets || []);
       setRewardWheelOptions(data.rewardWheelOptions || []);
       setRewardSpins(data.rewardSpins || []);
       setCoupons(data.coupons || []);
@@ -82,6 +84,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
     rewardItems,
     challenges,
     wheelOptions,
+    wheelPresets,
     rewardWheelOptions,
     rewardSpins,
     coupons,
