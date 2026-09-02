@@ -25,6 +25,9 @@ export function useKidsData(enabled = true, onUnauthorized) {
   const [rewardWheelOptions, setRewardWheelOptions] = useState([]);
   const [rewardSpins, setRewardSpins] = useState([]);
   const [coupons, setCoupons] = useState([]);
+  const [weekMoney, setWeekMoney] = useState([]);
+  const [weekPoints, setWeekPoints] = useState([]);
+  const [weekStart, setWeekStart] = useState(null);
   const [vapidPublicKey, setVapidPublicKey] = useState(null);
   const [today, setToday] = useState(null); // 資料庫伺服器認定的「今天」，不是瀏覽器自己算的
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,9 @@ export function useKidsData(enabled = true, onUnauthorized) {
       setRewardWheelOptions(data.rewardWheelOptions || []);
       setRewardSpins(data.rewardSpins || []);
       setCoupons(data.coupons || []);
+      setWeekMoney(data.weekMoney || []);
+      setWeekPoints(data.weekPoints || []);
+      setWeekStart(data.weekStart || null);
       setVapidPublicKey(data.vapidPublicKey);
       setToday(data.today);
     } catch (err) {
@@ -88,6 +94,9 @@ export function useKidsData(enabled = true, onUnauthorized) {
     rewardWheelOptions,
     rewardSpins,
     coupons,
+    weekMoney,
+    weekPoints,
+    weekStart,
     vapidPublicKey,
     today,
     loading,

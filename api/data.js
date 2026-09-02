@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "網站密碼錯誤" });
     }
 
-    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, wheelPresets, rewardWheelOptions, rewardSpins, coupons, todayRows] = await Promise.all([
+    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, wheelPresets, rewardWheelOptions, rewardSpins, coupons, weekMoney, weekPoints, todayRows] = await Promise.all([
       sql`select * from kids order by created_at`,
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
@@ -33,13 +33,29 @@ export default async function handler(req, res) {
       sql`select * from reward_wheel_options order by sort_order, created_at`,
       sql`select kid_id, label, to_char(spin_date, 'YYYY-MM-DD') as spin_date from reward_spins where spin_date = current_date`,
       sql`select * from coupons where status = 'unused' or used_at > now() - interval '7 days' order by created_at desc`,
-      sql`select to_char(current_date, 'YYYY-MM-DD') as today`,
+      // 本週（週一起算）的金錢與責任值彙總，給首頁的儀表板用
+      sql`
+        select kid_id,
+               coalesce(sum(case when type = 'income' then amount else 0 end), 0) as income,
+               coalesce(sum(case when type in ('expense', 'penalty') then amount else 0 end), 0) as expense
+        from transactions
+        where created_at >= date_trunc('week', current_date)
+        group by kid_id
+      `,
+      sql`
+        select kid_id, coalesce(sum(delta), 0) as points
+        from character_point_logs
+        where created_at >= date_trunc('week', current_date)
+        group by kid_id
+      `,
+      sql`select to_char(current_date, 'YYYY-MM-DD') as today, to_char(date_trunc('week', current_date), 'YYYY-MM-DD') as week_start`,
     ]);
     // 「今天」以資料庫伺服器的 current_date 為準，不要用瀏覽器自己算的日期，
     // 避免裝置時區跟資料庫時區對不起來，導致今天打的卡永遠比對不到。
     // 用 to_char 強制轉成純文字 YYYY-MM-DD，避免驅動程式把 date 型別
     // 轉成帶時間的 Date 物件，跟 log_date 格式對不齊。
     const today = todayRows[0].today;
+    const weekStart = todayRows[0].week_start;
 
     res.status(200).json({
       kids,
@@ -57,7 +73,10 @@ export default async function handler(req, res) {
       rewardWheelOptions,
       rewardSpins,
       coupons,
+      weekMoney,
+      weekPoints,
       today,
+      weekStart,
       // 推播用的公開金鑰，前端訂閱推播時要用（公開金鑰本來就可以給瀏覽器看）
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
     });

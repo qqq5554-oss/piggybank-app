@@ -1,6 +1,7 @@
 import React from "react";
 import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
+import WeeklyDashboard from "./WeeklyDashboard";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
 const ACTIONS = [
@@ -23,6 +24,9 @@ export default function HomeScreen({
   onWheel,
   onTimer,
   timerLabel = null,
+  weekMoney = [],
+  weekPoints = [],
+  weekStart = null,
 }) {
   return (
     <div style={{ padding: "20px 18px 40px", minHeight: "100vh", boxSizing: "border-box" }}>
@@ -196,6 +200,16 @@ export default function HomeScreen({
           );
         })}
       </div>
+
+      <WeeklyDashboard
+        kids={kids}
+        responsibilities={responsibilities}
+        responsibilityLogs={responsibilityLogs}
+        weekMoney={weekMoney}
+        weekPoints={weekPoints}
+        weekStart={weekStart}
+        today={today}
+      />
     </div>
   );
 }

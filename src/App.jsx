@@ -50,6 +50,9 @@ export default function App() {
     rewardWheelOptions,
     rewardSpins,
     coupons,
+    weekMoney,
+    weekPoints,
+    weekStart,
     vapidPublicKey,
     today,
     loading,
@@ -108,6 +111,9 @@ export default function App() {
       onWheel={() => setScreen("wheel")}
       onTimer={() => setScreen("timer")}
       timerLabel={timer.running ? formatRemaining(timer.remainingMs) : null}
+      weekMoney={weekMoney}
+      weekPoints={weekPoints}
+      weekStart={weekStart}
     />
   );
 
