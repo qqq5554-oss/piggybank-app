@@ -149,3 +149,7 @@ export const updateRewardWheelOption = (optionId, label, rewardPoints, rewardMon
   post("update_reward_wheel_option", { optionId, label, rewardPoints, rewardMoney });
 export const deleteRewardWheelOption = (optionId) => post("delete_reward_wheel_option", { optionId });
 export const reorderRewardWheelOptions = (ids) => post("reorder_reward_wheel_options", { ids });
+
+// ------- 兌換券 -------
+export const useCoupon = (couponId) => post("use_coupon", { couponId });
+export const deleteCoupon = (couponId) => post("delete_coupon", { couponId });

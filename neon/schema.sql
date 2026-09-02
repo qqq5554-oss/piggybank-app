@@ -310,3 +310,20 @@ from (values
   ('選明天的衣服', 0, 0, 6)
 ) as v(label, p, m, o)
 where not exists (select 1 from reward_wheel_options);
+
+-- ============================================================
+-- Phase 9 追加（兌換券）
+-- ⚠️ 同樣可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 兌換券：轉盤抽到的獎勵不一定當下能用（例如「今天你選晚餐」
+-- 可能已經吃完飯了），所以存成一張券放進券夾，之後要用再核銷。
+create table if not exists coupons (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  label text not null,
+  source text not null default 'wheel',
+  status text not null default 'unused' check (status in ('unused', 'used')),
+  created_at timestamptz not null default now(),
+  used_at timestamptz
+);

@@ -433,12 +433,23 @@ export default async function handler(req, res) {
 
         // 抽獎在後端決定，重新整理也沒辦法重抽
         const win = options[Math.floor(Math.random() * options.length)];
+        const points = Number(win.reward_points) || 0;
+        const money = Number(win.reward_money) || 0;
+        // 有給⭐或錢的格子直接入帳；其他的（例如「今天你選晚餐」）
+        // 不一定當下能用，所以發一張兌換券進券夾，之後再核銷
+        const issueCoupon = points === 0 && money === 0;
+
         const queries = [
           sql`
             insert into reward_spins (kid_id, spin_date, option_id, label)
             values (${kidId}, current_date, ${win.id}, ${win.label})
           `,
         ];
+        if (issueCoupon) {
+          queries.push(sql`
+            insert into coupons (kid_id, label, source) values (${kidId}, ${win.label}, 'wheel')
+          `);
+        }
         if (Number(win.reward_points) > 0) {
           queries.push(sql`
             insert into character_point_logs (kid_id, delta, reason)
@@ -455,7 +466,20 @@ export default async function handler(req, res) {
         }
         await sql.transaction(queries);
 
-        return res.status(200).json({ ok: true, optionId: win.id, label: win.label });
+        return res.status(200).json({ ok: true, optionId: win.id, label: win.label, coupon: issueCoupon });
+      }
+      case "use_coupon": {
+        const rows = await sql`
+          update coupons set status = 'used', used_at = now()
+          where id = ${payload.couponId} and status = 'unused'
+          returning label
+        `;
+        if (!rows[0]) return res.status(400).json({ error: "這張券已經用過了" });
+        break;
+      }
+      case "delete_coupon": {
+        await sql`delete from coupons where id = ${payload.couponId}`;
+        break;
       }
       case "add_reward_wheel_option": {
         const { label, rewardPoints = 0, rewardMoney = 0, sortOrder = 0 } = payload;

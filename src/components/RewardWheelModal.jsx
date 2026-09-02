@@ -9,6 +9,7 @@ export default function RewardWheelModal({ kid, options, onClose, refetch }) {
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState(null);
+  const [isCoupon, setIsCoupon] = useState(false);
   const [error, setError] = useState("");
   const timerRef = useRef(null);
 
@@ -17,7 +18,7 @@ export default function RewardWheelModal({ kid, options, onClose, refetch }) {
     setError("");
     setSpinning(true);
     try {
-      const { optionId, label } = await spinRewardWheel(kid.id);
+      const { optionId, label, coupon } = await spinRewardWheel(kid.id);
       const index = Math.max(0, options.findIndex((o) => o.id === optionId));
       setRotation((prev) => rotationForIndex(prev, index, options.length));
 
@@ -25,6 +26,7 @@ export default function RewardWheelModal({ kid, options, onClose, refetch }) {
       timerRef.current = setTimeout(async () => {
         setSpinning(false);
         setResult(label);
+        setIsCoupon(!!coupon);
         await refetch(); // 有加⭐或加錢的格子，這時候才會更新到畫面
       }, SPIN_MS);
     } catch (e) {
@@ -76,6 +78,9 @@ export default function RewardWheelModal({ kid, options, onClose, refetch }) {
             >
               <div style={{ fontSize: 12, color: "#B4A392", fontWeight: 700 }}>恭喜抽到</div>
               <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, fontWeight: 800, color: "#E86A3A" }}>{result}</div>
+              <div style={{ fontSize: 12, color: "#8A7457", marginTop: 6, lineHeight: 1.6 }}>
+                {isCoupon ? "🎟️ 已經存成一張兌換券，什麼時候想用再拿出來" : "已經直接入帳囉"}
+              </div>
             </div>
             <button
               onClick={onClose}

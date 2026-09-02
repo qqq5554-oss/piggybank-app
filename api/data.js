@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "網站密碼錯誤" });
     }
 
-    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, rewardWheelOptions, rewardSpins, todayRows] = await Promise.all([
+    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, rewardWheelOptions, rewardSpins, coupons, todayRows] = await Promise.all([
       sql`select * from kids order by created_at`,
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
@@ -31,6 +31,7 @@ export default async function handler(req, res) {
       sql`select * from wheel_options order by sort_order, created_at`,
       sql`select * from reward_wheel_options order by sort_order, created_at`,
       sql`select kid_id, label, to_char(spin_date, 'YYYY-MM-DD') as spin_date from reward_spins where spin_date = current_date`,
+      sql`select * from coupons where status = 'unused' or used_at > now() - interval '7 days' order by created_at desc`,
       sql`select to_char(current_date, 'YYYY-MM-DD') as today`,
     ]);
     // 「今天」以資料庫伺服器的 current_date 為準，不要用瀏覽器自己算的日期，
@@ -53,6 +54,7 @@ export default async function handler(req, res) {
       wheelOptions,
       rewardWheelOptions,
       rewardSpins,
+      coupons,
       today,
       // 推播用的公開金鑰，前端訂閱推播時要用（公開金鑰本來就可以給瀏覽器看）
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,

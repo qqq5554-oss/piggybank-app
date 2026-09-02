@@ -40,6 +40,7 @@ export default function App() {
     wheelOptions,
     rewardWheelOptions,
     rewardSpins,
+    coupons,
     vapidPublicKey,
     today,
     loading,
@@ -107,6 +108,7 @@ export default function App() {
         rewardItems={rewardItems}
         rewardWheelOptions={rewardWheelOptions}
         todaySpin={rewardSpins.find((s) => s.kid_id === activeKid.id) || null}
+        coupons={coupons.filter((c) => c.kid_id === activeKid.id)}
         today={today}
         onBack={goHome}
         refetch={refetch}
