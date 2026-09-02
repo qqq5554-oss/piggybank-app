@@ -211,3 +211,43 @@ where r.kid_id is null;
 delete from responsibilities where kid_id is null;
 
 alter table responsibilities alter column kid_id set not null;
+
+-- ============================================================
+-- Phase 6 追加（挑戰、手機推播通知）
+-- ⚠️ 同樣全部用 IF NOT EXISTS，可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 挑戰：target_count = 1 是單次挑戰（例如「可以念 1~100」），
+-- 大於 1 就是次數挑戰（例如「吃不喜歡的食物 10 次」），每完成
+-- 一次就 done_count + 1，累積到 target_count 就自動完成並發獎勵
+create table if not exists challenges (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  name text not null,
+  target_count integer not null default 1,
+  done_count integer not null default 0,
+  reward_money numeric not null default 0,
+  reward_points numeric not null default 0,
+  status text not null default 'open' check (status in ('open', 'done')),
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+-- 手機推播訂閱：每支手機（每個瀏覽器）授權後會存一筆
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  label text,
+  created_at timestamptz not null default now()
+);
+
+-- 通知發送紀錄：同一種通知同一天只推播一次，避免重複打擾
+create table if not exists notification_logs (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null,
+  ref_date date not null,
+  created_at timestamptz not null default now(),
+  unique (kind, ref_date)
+);

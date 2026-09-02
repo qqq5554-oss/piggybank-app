@@ -9,7 +9,6 @@ import {
   updateKid,
   addChore,
   deleteChore,
-  changePin,
   addResponsibility,
   deleteResponsibility,
   addMission,
@@ -35,6 +34,7 @@ import {
   updateRewardItem,
 } from "../api/client";
 import { currency, formatDate, themeOf, KID_THEMES, AVATARS } from "../utils/format";
+import { subscribePush, unsubscribePush, getExistingSubscription, pushSupported, isIOS, isStandalone } from "../utils/push";
 import TransactionList from "./TransactionList";
 
 const WEEKDAY_LABELS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -48,6 +48,7 @@ export default function ParentDashboard({
   allowanceRules,
   expenseRules,
   rewardItems,
+  vapidPublicKey,
   pin,
   onBack,
   refetch,
@@ -62,7 +63,7 @@ export default function ParentDashboard({
         <button onClick={onBack} style={{ background: "#F1E7DC", border: "none", borderRadius: 10, width: 34, height: 34 }}>
           <ChevronLeft size={22} color="#5A4632" />
         </button>
-        <span style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800 }}>家長模式</span>
+        <span style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800 }}>管理</span>
         <div style={{ width: 34 }} />
       </div>
 
@@ -106,7 +107,7 @@ export default function ParentDashboard({
         {tab === "recurring" && (
           <RecurringManageTab kids={kids} allowanceRules={allowanceRules} expenseRules={expenseRules} pin={pin} refetch={refetch} />
         )}
-        {tab === "settings" && <SettingsTab pin={pin} />}
+        {tab === "settings" && <SettingsTab pin={pin} vapidPublicKey={vapidPublicKey} />}
       </div>
     </div>
   );
@@ -1412,32 +1413,21 @@ function RecurringManageTab({ kids, allowanceRules, expenseRules, pin, refetch }
 }
 
 // ---------------- 設定 ----------------
-function SettingsTab({ pin }) {
-  const [pin1, setPin1] = useState("");
-  const [pin2, setPin2] = useState("");
-  const [msg, setMsg] = useState("");
-  const [saving, setSaving] = useState(false);
-
+function SettingsTab({ pin, vapidPublicKey }) {
   const [sitePin1, setSitePin1] = useState("");
   const [sitePin2, setSitePin2] = useState("");
   const [siteMsg, setSiteMsg] = useState("");
   const [savingSite, setSavingSite] = useState(false);
 
-  const doChangePin = async () => {
-    if (pin1.length !== 4 || !/^\d{4}$/.test(pin1)) return setMsg("密碼需為 4 碼數字");
-    if (pin1 !== pin2) return setMsg("兩次密碼不一致");
-    setSaving(true);
-    try {
-      await changePin(pin1, pin);
-      setPin1("");
-      setPin2("");
-      setMsg("密碼已更新 ✅（下次進入家長模式請用新密碼）");
-    } catch (e) {
-      setMsg(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const [pushOn, setPushOn] = useState(false);
+  const [pushMsg, setPushMsg] = useState("");
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    getExistingSubscription()
+      .then((sub) => setPushOn(!!sub))
+      .catch(() => setPushOn(false));
+  }, []);
 
   const doChangeSitePin = async () => {
     if (sitePin1.length !== 4 || !/^\d{4}$/.test(sitePin1)) return setSiteMsg("密碼需為 4 碼數字");
@@ -1456,19 +1446,71 @@ function SettingsTab({ pin }) {
     }
   };
 
+  const turnOnPush = async () => {
+    setPushBusy(true);
+    setPushMsg("");
+    try {
+      await subscribePush(vapidPublicKey, navigator.userAgent.slice(0, 80));
+      setPushOn(true);
+      setPushMsg("已開啟 ✅ 之後發零用錢、發利息、今日責任沒完成都會通知這支手機");
+    } catch (e) {
+      setPushMsg(e.message);
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const turnOffPush = async () => {
+    setPushBusy(true);
+    setPushMsg("");
+    try {
+      await unsubscribePush();
+      setPushOn(false);
+      setPushMsg("已關閉這支手機的通知");
+    } catch (e) {
+      setPushMsg(e.message);
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const supported = pushSupported();
+  const needsInstall = isIOS() && !isStandalone();
+
   return (
     <div>
-      <label style={labelStyle}>修改家長密碼</label>
-      <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="新密碼（4碼數字）" maxLength={4} value={pin1} onChange={(e) => setPin1(e.target.value.replace(/\D/g, ""))} />
-      <input style={inputStyle} placeholder="再輸入一次" maxLength={4} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ""))} />
-      <button onClick={doChangePin} disabled={saving} style={{ ...primaryBtnStyle, background: "#94795F", marginTop: 10, opacity: saving ? 0.6 : 1 }}>
-        {saving ? "更新中..." : "更新密碼"}
-      </button>
-      {msg && <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#8A6E3D" }}>{msg}</div>}
+      <label style={labelStyle}>🔔 手機推播通知</label>
+      <div style={{ fontSize: 12.5, color: "#B4A392", lineHeight: 1.7, marginBottom: 10 }}>
+        開啟後，發放零用錢、結算利息、傍晚還沒完成今日責任時，都會直接推播到這支手機。
+        每支手機都要各自開啟一次。
+      </div>
+
+      {!supported && (
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#E85D5D" }}>這個瀏覽器不支援推播通知</div>
+      )}
+
+      {supported && needsInstall && (
+        <div style={{ background: "#FFF6F0", border: "2px solid #FFE1CC", borderRadius: 12, padding: "10px 12px", fontSize: 12.5, color: "#8A6E3D", lineHeight: 1.7 }}>
+          iPhone 要先把這個網站「加到主畫面」，再從主畫面的圖示打開，才能開啟推播通知。
+          （Safari 下方分享按鈕 → 加入主畫面）
+        </div>
+      )}
+
+      {supported && !needsInstall && (
+        <button
+          onClick={pushOn ? turnOffPush : turnOnPush}
+          disabled={pushBusy}
+          style={{ ...primaryBtnStyle, background: pushOn ? "#B4A392" : "#3DB88A", opacity: pushBusy ? 0.6 : 1 }}
+        >
+          {pushBusy ? "處理中..." : pushOn ? "關閉這支手機的通知" : "開啟手機推播通知"}
+        </button>
+      )}
+
+      {pushMsg && <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#8A6E3D" }}>{pushMsg}</div>}
 
       <div style={{ height: 1, background: "#F1E7DC", margin: "20px 0" }} />
 
-      <label style={labelStyle}>🔒 修改進站密碼（整個網站的門鎖，跟家長密碼分開）</label>
+      <label style={labelStyle}>🔒 修改進站密碼（打開 App 時要輸入的那組）</label>
       <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="新密碼（4碼數字）" maxLength={4} value={sitePin1} onChange={(e) => setSitePin1(e.target.value.replace(/\D/g, ""))} />
       <input style={inputStyle} placeholder="再輸入一次" maxLength={4} value={sitePin2} onChange={(e) => setSitePin2(e.target.value.replace(/\D/g, ""))} />
       <button onClick={doChangeSitePin} disabled={savingSite} style={{ ...primaryBtnStyle, background: "#5A4632", marginTop: 10, opacity: savingSite ? 0.6 : 1 }}>

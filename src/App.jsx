@@ -1,17 +1,22 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useKidsData } from "./hooks/useKidsData";
 import { getSitePin, clearSitePin } from "./api/client";
+import { registerServiceWorker } from "./utils/push";
 import HomeScreen from "./components/HomeScreen";
 import KidDetailScreen from "./components/KidDetailScreen";
-import ParentPinScreen from "./components/ParentPinScreen";
 import ParentDashboard from "./components/ParentDashboard";
 import SiteAccessScreen from "./components/SiteAccessScreen";
 import QuickRecordScreen from "./components/QuickRecordScreen";
+import TodayResponsibilityScreen from "./components/TodayResponsibilityScreen";
+import ChallengeScreen from "./components/ChallengeScreen";
 
-// 畫面流程：
-// siteLocked（進站密碼）→ home（選小孩）→ kidDetail（小孩自己的帳戶）
-// home → parentPinEntry（輸入密碼）→ parentDashboard（家長後台）或 quickRecord（快速記帳）
-// pinIntent 記著輸入密碼是為了去哪一個畫面
+// 畫面流程（家長 PIN 已取消，只留進站密碼當大門）：
+// siteLocked（進站密碼）→ home（兩張大卡片 + 常用功能）
+// 卡片上的功能各自進到獨立畫面：
+//   今日責任 → todayResponsibility（打卡＋兌換獎勵）
+//   支出／收入／責任 → quickRecord（數字鍵盤記一筆）
+//   挑戰 → challenge
+// 點卡片本身 → kidDetail（完整帳戶頁）；右上齒輪 → manage（管理）
 export default function App() {
   const [siteUnlocked, setSiteUnlocked] = useState(!!getSitePin());
   const handleUnauthorized = useCallback(() => {
@@ -29,14 +34,21 @@ export default function App() {
     allowanceRules,
     expenseRules,
     rewardItems,
+    challenges,
+    vapidPublicKey,
     today,
     loading,
     refetch,
   } = useKidsData(siteUnlocked, handleUnauthorized);
+
   const [screen, setScreen] = useState("home");
   const [activeKidId, setActiveKidId] = useState(null);
-  const [parentPin, setParentPin] = useState(null); // 驗證成功的 PIN，家長後台的寫入操作要帶著它
-  const [pinIntent, setPinIntent] = useState("dashboard"); // 輸入密碼成功後要去 dashboard 還是 quickRecord
+  const [quickTab, setQuickTab] = useState("expense");
+
+  // 一進來就先註冊 Service Worker，之後要開推播通知才不用等
+  useEffect(() => {
+    if (siteUnlocked) registerServiceWorker();
+  }, [siteUnlocked]);
 
   if (!siteUnlocked) {
     return <SiteAccessScreen onSuccess={() => setSiteUnlocked(true)} />;
@@ -51,24 +63,64 @@ export default function App() {
   }
 
   const activeKid = kids.find((k) => k.id === activeKidId) || null;
+  const goHome = () => setScreen("home");
+
+  // 首頁卡片上的常用功能按鈕
+  const handleAction = (kidId, actionId) => {
+    setActiveKidId(kidId);
+    if (actionId === "today") return setScreen("todayResponsibility");
+    if (actionId === "challenge") return setScreen("challenge");
+    setQuickTab(actionId === "points" ? "points" : actionId); // expense / income / points
+    setScreen("quickRecord");
+  };
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh" }}>
       {screen === "home" && (
         <HomeScreen
           kids={kids}
+          responsibilities={responsibilities}
+          responsibilityLogs={responsibilityLogs}
+          challenges={challenges}
+          today={today}
           onSelectKid={(id) => {
             setActiveKidId(id);
             setScreen("kidDetail");
           }}
-          onParentClick={() => {
-            setPinIntent("dashboard");
-            setScreen("parentPinEntry");
-          }}
-          onQuickRecord={() => {
-            setPinIntent("quickRecord");
-            setScreen("parentPinEntry");
-          }}
+          onAction={handleAction}
+          onManage={() => setScreen("manage")}
+        />
+      )}
+
+      {screen === "todayResponsibility" && activeKid && (
+        <TodayResponsibilityScreen
+          kid={activeKid}
+          responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
+          responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
+          rewardItems={rewardItems}
+          today={today}
+          onBack={goHome}
+          refetch={refetch}
+        />
+      )}
+
+      {screen === "challenge" && activeKid && (
+        <ChallengeScreen
+          kid={activeKid}
+          challenges={challenges.filter((c) => c.kid_id === activeKid.id)}
+          onBack={goHome}
+          refetch={refetch}
+        />
+      )}
+
+      {screen === "quickRecord" && (
+        <QuickRecordScreen
+          kids={kids}
+          pin={null}
+          initialKidId={activeKidId}
+          initialTab={quickTab}
+          onClose={goHome}
+          refetch={refetch}
         />
       )}
 
@@ -81,34 +133,12 @@ export default function App() {
           missions={missions.filter((m) => m.kid_id === activeKid.id)}
           rewardItems={rewardItems}
           today={today}
-          onBack={() => setScreen("home")}
+          onBack={goHome}
           refetch={refetch}
         />
       )}
 
-      {screen === "parentPinEntry" && (
-        <ParentPinScreen
-          onBack={() => setScreen("home")}
-          onSuccess={(pin) => {
-            setParentPin(pin);
-            setScreen(pinIntent === "quickRecord" ? "quickRecord" : "parentDashboard");
-          }}
-        />
-      )}
-
-      {screen === "quickRecord" && (
-        <QuickRecordScreen
-          kids={kids}
-          pin={parentPin}
-          onClose={() => {
-            setParentPin(null);
-            setScreen("home");
-          }}
-          refetch={refetch}
-        />
-      )}
-
-      {screen === "parentDashboard" && (
+      {screen === "manage" && (
         <ParentDashboard
           kids={kids}
           chores={chores}
@@ -118,11 +148,9 @@ export default function App() {
           allowanceRules={allowanceRules}
           expenseRules={expenseRules}
           rewardItems={rewardItems}
-          pin={parentPin}
-          onBack={() => {
-            setParentPin(null);
-            setScreen("home");
-          }}
+          vapidPublicKey={vapidPublicKey}
+          pin={null}
+          onBack={goHome}
           refetch={refetch}
         />
       )}

@@ -115,3 +115,22 @@ export const addRewardItem = (name, pointsCost, pin) => post("add_reward_item", 
 export const deleteRewardItem = (rewardItemId, pin) => post("delete_reward_item", { rewardItemId }, pin);
 export const updateRewardItem = (rewardItemId, name, pointsCost, pin) =>
   post("update_reward_item", { rewardItemId, name, pointsCost }, pin);
+
+// ------- 挑戰 -------
+export const addChallenge = (kidId, name, targetCount, rewardMoney, rewardPoints) =>
+  post("add_challenge", { kidId, name, targetCount, rewardMoney, rewardPoints });
+export const updateChallenge = (challengeId, name, targetCount, rewardMoney, rewardPoints) =>
+  post("update_challenge", { challengeId, name, targetCount, rewardMoney, rewardPoints });
+export const deleteChallenge = (challengeId) => post("delete_challenge", { challengeId });
+export const tickChallenge = (challengeId) => post("tick_challenge", { challengeId });
+export const untickChallenge = (challengeId) => post("untick_challenge", { challengeId });
+
+// ------- 手機推播訂閱 -------
+export const savePushSubscription = (sub, label) =>
+  post("save_push_subscription", {
+    endpoint: sub.endpoint,
+    p256dh: sub.keys.p256dh,
+    auth: sub.keys.auth,
+    label,
+  });
+export const deletePushSubscription = (endpoint) => post("delete_push_subscription", { endpoint });

@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { sendPushOnce } from "../lib/push.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
@@ -36,8 +37,13 @@ export default async function handler(req, res) {
   const dateStr = today.toISOString().slice(0, 10);
   const dow = today.getUTCDay();
   const result = { date: dateStr, allowance: 0, expense: 0, interest: 0 };
+  // 今天實際發生了什麼，最後彙整成一則手機推播通知
+  const notices = [];
 
   try {
+    const allKids = await sql`select id, name from kids`;
+    const kidName = Object.fromEntries(allKids.map((k) => [k.id, k.name]));
+
     // ------- 固定零用錢 -------
     const allowanceRules = await sql`select * from allowance_rules where active = true`;
     for (const rule of allowanceRules) {
@@ -51,6 +57,7 @@ export default async function handler(req, res) {
           sql`insert into scheduled_run_logs (rule_type, rule_id, run_date) values ('allowance', ${rule.id}, ${dateStr})`,
         ]);
         result.allowance++;
+        notices.push(`${kidName[rule.kid_id] || "小朋友"} 零用錢 +${rule.amount}`);
       } catch (err) {
         console.error("allowance rule 執行失敗", rule.id, err.message);
       }
@@ -68,6 +75,7 @@ export default async function handler(req, res) {
           sql`insert into scheduled_run_logs (rule_type, rule_id, run_date) values ('expense', ${rule.id}, ${dateStr})`,
         ]);
         result.expense++;
+        notices.push(`${kidName[rule.kid_id] || "小朋友"} ${rule.name} -${rule.amount}`);
       } catch (err) {
         console.error("expense rule 執行失敗", rule.id, err.message);
       }
@@ -88,9 +96,19 @@ export default async function handler(req, res) {
             sql`insert into scheduled_run_logs (rule_type, rule_id, run_date) values ('interest', ${kid.id}, ${dateStr})`,
           ]);
           result.interest++;
+          notices.push(`${kidName[kid.id] || "小朋友"} 存款利息 +${interest}`);
         } catch (err) {
           console.error("interest 結算失敗", kid.id, err.message);
         }
+      }
+    }
+
+    // ------- 手機推播：今天有結算才發，而且同一天只發一次 -------
+    if (notices.length > 0) {
+      try {
+        await sendPushOnce("cron", dateStr, "小小存錢筒", notices.join("、") + " 已經入帳囉");
+      } catch (err) {
+        console.error("推播通知失敗", err.message);
       }
     }
 

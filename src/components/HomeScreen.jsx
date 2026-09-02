@@ -1,88 +1,160 @@
 import React from "react";
-import { Lock, Plus } from "lucide-react";
+import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
 
-export default function HomeScreen({ kids, onSelectKid, onParentClick, onQuickRecord }) {
+// 卡片上的常用功能：點下去各自進到獨立的功能頁
+const ACTIONS = [
+  { id: "today", label: "今日責任", Icon: Home },
+  { id: "expense", label: "支出", Icon: TrendingDown },
+  { id: "income", label: "收入", Icon: TrendingUp },
+  { id: "points", label: "責任", Icon: Star },
+  { id: "challenge", label: "挑戰", Icon: Trophy },
+];
+
+export default function HomeScreen({
+  kids,
+  responsibilities,
+  responsibilityLogs,
+  challenges,
+  today,
+  onSelectKid,
+  onAction,
+  onManage,
+}) {
   return (
-    <div style={{ padding: "20px 18px 100px", position: "relative", minHeight: "100vh", boxSizing: "border-box" }}>
+    <div style={{ padding: "20px 18px 40px", minHeight: "100vh", boxSizing: "border-box" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <div>
           <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, fontWeight: 800 }}>總覽</div>
           <div style={{ color: "#B4A392", fontSize: 12.5, marginTop: 2 }}>小小存錢筒</div>
         </div>
         <button
-          onClick={onParentClick}
+          onClick={onManage}
+          aria-label="管理"
           style={{ width: 38, height: 38, borderRadius: 12, border: "none", background: "#F1E7DC" }}
         >
-          <Lock size={18} color="#94795F" />
+          <Settings size={18} color="#94795F" />
         </button>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {kids.map((kid) => {
           const theme = themeOf(kid.theme_id);
           const goalPct =
             kid.goal_amount > 0 ? Math.min(100, Math.round((kid.balance / kid.goal_amount) * 100)) : null;
+
+          const kidResponsibilities = responsibilities.filter((r) => r.kid_id === kid.id);
+          const doneIds = new Set(
+            responsibilityLogs
+              .filter((l) => l.kid_id === kid.id && String(l.log_date).slice(0, 10) === today)
+              .map((l) => l.responsibility_id)
+          );
+          const doneCount = kidResponsibilities.filter((r) => doneIds.has(r.id)).length;
+          const openChallenges = challenges.filter((c) => c.kid_id === kid.id && c.status === "open").length;
+
+          const badgeFor = (actionId) => {
+            if (actionId === "today" && kidResponsibilities.length > 0) {
+              return `${doneCount}/${kidResponsibilities.length}`;
+            }
+            if (actionId === "challenge" && openChallenges > 0) return String(openChallenges);
+            return null;
+          };
+
           return (
-            <button
+            <div
               key={kid.id}
-              onClick={() => onSelectKid(kid.id)}
               style={{
                 border: `2px solid ${theme.accent}`,
-                borderRadius: 18,
-                padding: "14px 16px",
+                borderRadius: 22,
                 background: theme.bg,
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
+                overflow: "hidden",
               }}
             >
-              <div style={{ fontSize: 30 }}>{kid.avatar}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, color: theme.accentDark, fontSize: 16 }}>
-                  {kid.name}
-                </div>
-                {goalPct !== null && (
-                  <div style={{ fontSize: 11.5, fontWeight: 700, color: "#8A7457", marginTop: 2 }}>
-                    🎯 {kid.goal_name} {goalPct}%
+              <button
+                onClick={() => onSelectKid(kid.id)}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  background: "none",
+                  padding: "18px 18px 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ fontSize: 42 }}>{kid.avatar}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, color: theme.accentDark, fontSize: 20 }}>
+                    {kid.name}
                   </div>
-                )}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, color: theme.accentDark, fontSize: 20 }}>
-                  {currency(kid.balance)}
+                  {goalPct !== null && (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#8A7457", marginTop: 3 }}>
+                      🎯 {kid.goal_name} {goalPct}%
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8A7457" }}>⭐ {kid.character_points || 0}</div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, color: theme.accentDark, fontSize: 24 }}>
+                    {currency(kid.balance)}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#8A7457" }}>⭐ {kid.character_points || 0}</div>
+                </div>
+              </button>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, 1fr)",
+                  gap: 6,
+                  padding: "0 12px 14px",
+                }}
+              >
+                {ACTIONS.map(({ id, label, Icon }) => {
+                  const badge = badgeFor(id);
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => onAction(kid.id, id)}
+                      style={{
+                        position: "relative",
+                        border: "none",
+                        borderRadius: 14,
+                        background: "#fff",
+                        padding: "10px 2px 8px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Icon size={18} color={theme.accentDark} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#8A7457", whiteSpace: "nowrap" }}>{label}</span>
+                      {badge && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: 4,
+                            right: 6,
+                            background: theme.accent,
+                            color: "#fff",
+                            fontSize: 9.5,
+                            fontWeight: 800,
+                            borderRadius: 8,
+                            padding: "1px 5px",
+                          }}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
-
-      <button
-        onClick={onQuickRecord}
-        aria-label="快速記帳"
-        style={{
-          position: "fixed",
-          // 內容區塊在寬螢幕上會置中並限制在 480px，用 max() 讓按鈕
-          // 貼齊那個欄位的右邊，而不是整個瀏覽器視窗的右邊。
-          right: "max(20px, calc((100vw - 480px) / 2 + 20px))",
-          bottom: 26,
-          width: 56,
-          height: 56,
-          borderRadius: "50%",
-          border: "none",
-          background: "#E86A3A",
-          color: "#fff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 6px 16px rgba(232,106,58,.4)",
-        }}
-      >
-        <Plus size={26} />
-      </button>
     </div>
   );
 }

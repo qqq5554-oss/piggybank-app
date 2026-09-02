@@ -2,39 +2,10 @@ import { neon } from "@neondatabase/serverless";
 
 const sql = neon(process.env.DATABASE_URL);
 
-// 需要家長 PIN 驗證才能執行的動作
-const PARENT_ACTIONS = new Set([
-  "approve_chore",
-  "reject_chore",
-  "adjust_balance",
-  "add_kid",
-  "update_kid",
-  "add_chore",
-  "delete_chore",
-  "change_pin",
-  "add_responsibility",
-  "delete_responsibility",
-  "add_mission",
-  "approve_mission",
-  "reject_mission",
-  "delete_mission",
-  "award_points",
-  "add_violation",
-  "add_allowance_rule",
-  "delete_allowance_rule",
-  "add_expense_rule",
-  "delete_expense_rule",
-  "set_interest_rate",
-  "update_chore",
-  "update_responsibility",
-  "update_mission",
-  "update_allowance_rule",
-  "update_expense_rule",
-  "change_site_pin",
-  "add_reward_item",
-  "delete_reward_item",
-  "update_reward_item",
-]);
+// 家長專區的 PIN 已經取消，所有操作只要通過「進站密碼」就能執行。
+// 這個集合先留空（不是刪掉），之後想恢復某些動作的密碼保護時，
+// 只要把 action 名稱加回來就會重新要求 PIN。
+const PARENT_ACTIONS = new Set([]);
 
 async function checkPin(pin) {
   const rows = await sql`select value from app_settings where key = 'parent_pin'`;
@@ -365,6 +336,91 @@ export default async function handler(req, res) {
         await sql`update kids set interest_rate = ${rate} where id = ${kidId}`;
         break;
       }
+      // ------- 挑戰 -------
+      case "add_challenge": {
+        const { kidId, name, targetCount = 1, rewardMoney = 0, rewardPoints = 0 } = payload;
+        await sql`
+          insert into challenges (kid_id, name, target_count, reward_money, reward_points)
+          values (${kidId}, ${name}, ${targetCount}, ${rewardMoney}, ${rewardPoints})
+        `;
+        break;
+      }
+      case "update_challenge": {
+        const { challengeId, name, targetCount, rewardMoney = 0, rewardPoints = 0 } = payload;
+        await sql`
+          update challenges set
+            name = ${name},
+            target_count = ${targetCount},
+            reward_money = ${rewardMoney},
+            reward_points = ${rewardPoints}
+          where id = ${challengeId} and status = 'open'
+        `;
+        break;
+      }
+      case "delete_challenge": {
+        await sql`delete from challenges where id = ${payload.challengeId}`;
+        break;
+      }
+      case "tick_challenge": {
+        // 完成一次挑戰：次數 +1，累積到目標次數就標記完成並自動發獎勵
+        const { challengeId } = payload;
+        const rows = await sql`
+          update challenges set done_count = done_count + 1
+          where id = ${challengeId} and status = 'open' and done_count < target_count
+          returning *
+        `;
+        const c = rows[0];
+        if (!c) return res.status(400).json({ error: "挑戰已完成或不存在" });
+
+        if (c.done_count >= c.target_count) {
+          const queries = [
+            sql`update challenges set status = 'done', completed_at = now() where id = ${challengeId}`,
+          ];
+          if (Number(c.reward_money) > 0) {
+            queries.push(sql`
+              insert into transactions (kid_id, type, amount, note)
+              values (${c.kid_id}, 'income', ${c.reward_money}, ${"挑戰完成：" + c.name})
+            `);
+            queries.push(sql`update kids set balance = balance + ${c.reward_money} where id = ${c.kid_id}`);
+          }
+          if (Number(c.reward_points) > 0) {
+            queries.push(sql`
+              insert into character_point_logs (kid_id, delta, reason)
+              values (${c.kid_id}, ${c.reward_points}, ${"挑戰完成：" + c.name})
+            `);
+            queries.push(sql`update kids set character_points = character_points + ${c.reward_points} where id = ${c.kid_id}`);
+          }
+          await sql.transaction(queries);
+          return res.status(200).json({ ok: true, completed: true });
+        }
+        return res.status(200).json({ ok: true, completed: false });
+      }
+      case "untick_challenge": {
+        // 打錯了可以退回一次（已完成的挑戰不能退，避免獎勵要跟著倒扣）
+        const rows = await sql`
+          update challenges set done_count = done_count - 1
+          where id = ${payload.challengeId} and status = 'open' and done_count > 0
+          returning id
+        `;
+        if (!rows[0]) return res.status(400).json({ error: "沒有可以取消的紀錄" });
+        break;
+      }
+
+      // ------- 手機推播訂閱 -------
+      case "save_push_subscription": {
+        const { endpoint, p256dh, auth: authKey, label = null } = payload;
+        await sql`
+          insert into push_subscriptions (endpoint, p256dh, auth, label)
+          values (${endpoint}, ${p256dh}, ${authKey}, ${label})
+          on conflict (endpoint) do update set p256dh = excluded.p256dh, auth = excluded.auth
+        `;
+        break;
+      }
+      case "delete_push_subscription": {
+        await sql`delete from push_subscriptions where endpoint = ${payload.endpoint}`;
+        break;
+      }
+
       case "add_reward_item": {
         const { name, pointsCost } = payload;
         await sql`insert into reward_items (name, points_cost) values (${name}, ${pointsCost})`;

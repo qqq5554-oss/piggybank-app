@@ -20,9 +20,9 @@ const POINTS_NOTE_SUGGESTIONS = {
 
 // 給家長快速記一筆的輸入頁：像記帳 app 一樣，數字鍵盤 + 分類，
 // 一次只記一筆錢或一筆責任值，存完鍵盤歸零可以馬上記下一筆。
-export default function QuickRecordScreen({ kids, pin, onClose, refetch }) {
-  const [kidId, setKidId] = useState(kids[0]?.id || "");
-  const [tab, setTab] = useState("expense");
+export default function QuickRecordScreen({ kids, pin, initialKidId, initialTab = "expense", onClose, refetch }) {
+  const [kidId, setKidId] = useState(initialKidId || kids[0]?.id || "");
+  const [tab, setTab] = useState(initialTab);
   const [moneyKind, setMoneyKind] = useState("normal"); // normal | penalty（只有支出用得到）
   const [direction, setDirection] = useState("gain"); // gain | loss（只有責任值用得到）
   const [amountStr, setAmountStr] = useState("0");

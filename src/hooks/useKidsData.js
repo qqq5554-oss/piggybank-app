@@ -19,6 +19,8 @@ export function useKidsData(enabled = true, onUnauthorized) {
   const [allowanceRules, setAllowanceRules] = useState([]);
   const [expenseRules, setExpenseRules] = useState([]);
   const [rewardItems, setRewardItems] = useState([]);
+  const [challenges, setChallenges] = useState([]);
+  const [vapidPublicKey, setVapidPublicKey] = useState(null);
   const [today, setToday] = useState(null); // 資料庫伺服器認定的「今天」，不是瀏覽器自己算的
   const [loading, setLoading] = useState(true);
   const timerRef = useRef(null);
@@ -38,6 +40,8 @@ export function useKidsData(enabled = true, onUnauthorized) {
       setAllowanceRules(data.allowanceRules);
       setExpenseRules(data.expenseRules);
       setRewardItems(data.rewardItems);
+      setChallenges(data.challenges);
+      setVapidPublicKey(data.vapidPublicKey);
       setToday(data.today);
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
@@ -68,6 +72,8 @@ export function useKidsData(enabled = true, onUnauthorized) {
     allowanceRules,
     expenseRules,
     rewardItems,
+    challenges,
+    vapidPublicKey,
     today,
     loading,
     refetch: fetchAll,
