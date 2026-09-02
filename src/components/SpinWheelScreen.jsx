@@ -25,7 +25,9 @@ export default function SpinWheelScreen({ wheelOptions, wheelPresets, kids, onBa
   const [creating, setCreating] = useState(false);
   const [newPresetName, setNewPresetName] = useState("");
   const [renameValue, setRenameValue] = useState("");
+  const [slide, setSlide] = useState(0); // 換組時的滑入動畫
   const timerRef = useRef(null);
+  const swipeRef = useRef({ x: 0, y: 0, active: false });
 
   // 記住上次用的是哪一組，下次打開直接是同一個
   const [presetId, setPresetId] = useState(() => localStorage.getItem(LAST_PRESET_KEY) || null);
@@ -53,6 +55,35 @@ export default function SpinWheelScreen({ wheelOptions, wheelPresets, kids, onBa
     setResult(null);
     setRotation(0);
     setEditing(false);
+  };
+
+  // 左右滑動換下一組／上一組轉盤
+  const goPreset = (dir) => {
+    if (spinning || !activePreset) return;
+    const idx = wheelPresets.findIndex((p) => p.id === activePreset.id);
+    const next = idx + dir;
+    if (next < 0 || next >= wheelPresets.length) return;
+
+    switchPreset(wheelPresets[next].id);
+    // 先跳到偏移的位置，下一幀再滑回原位，做出「換頁」的感覺
+    setSlide(dir > 0 ? 30 : -30);
+    requestAnimationFrame(() => requestAnimationFrame(() => setSlide(0)));
+  };
+
+  const onSwipeStart = (e) => {
+    const t = e.touches[0];
+    swipeRef.current = { x: t.clientX, y: t.clientY, active: true };
+  };
+
+  const onSwipeEnd = (e) => {
+    if (!swipeRef.current.active) return;
+    swipeRef.current.active = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - swipeRef.current.x;
+    const dy = t.clientY - swipeRef.current.y;
+    // 要夠明顯的水平滑動才算，避免上下捲動時誤觸
+    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    goPreset(dx < 0 ? 1 : -1);
   };
 
   const spin = () => {
@@ -182,6 +213,12 @@ export default function SpinWheelScreen({ wheelOptions, wheelPresets, kids, onBa
         </button>
       </div>
 
+      {wheelPresets.length > 1 && !creating && (
+        <div style={{ textAlign: "center", fontSize: 11.5, color: "#C4B4A0", paddingBottom: 6 }}>
+          在轉盤上左右滑動可以換一組
+        </div>
+      )}
+
       {creating && (
         <div style={{ display: "flex", gap: 8, padding: "0 14px 12px" }}>
           <input
@@ -211,8 +248,24 @@ export default function SpinWheelScreen({ wheelOptions, wheelPresets, kids, onBa
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "2px 18px 0" }}>
-        <WheelCanvas options={options} rotation={rotation} spinning={spinning} />
+      <div
+        data-no-swipe-back="true"
+        onTouchStart={onSwipeStart}
+        onTouchEnd={onSwipeEnd}
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "2px 18px 0" }}
+      >
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "center",
+            transform: `translateX(${slide}px)`,
+            opacity: slide ? 0.3 : 1,
+            transition: slide ? "none" : "transform .22s ease-out, opacity .22s ease-out",
+          }}
+        >
+          <WheelCanvas options={options} rotation={rotation} spinning={spinning} />
+        </div>
 
         <button
           onClick={spin}

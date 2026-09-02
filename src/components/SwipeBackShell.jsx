@@ -47,10 +47,13 @@ export default function SwipeBackShell({ children, background, onBack }) {
       }, ANIM_MS);
     };
 
-    // 起點在可以左右捲動的區塊裡就不攔截，不然想捲清單會變成返回
-    const inHorizontalScroller = (target) => {
+    // 這些起點不攔截返回手勢：
+    // 1. 可以左右捲動的區塊（不然想捲清單會變成返回）
+    // 2. 自己標記 data-no-swipe-back 的區塊（例如轉盤，左右滑有自己的用途）
+    const shouldIgnoreStart = (target) => {
       let node = target;
       while (node && node !== el) {
+        if (node.dataset?.noSwipeBack === "true") return true;
         if (node.scrollWidth > node.clientWidth + 4) {
           const overflowX = getComputedStyle(node).overflowX;
           if (overflowX === "auto" || overflowX === "scroll") return true;
@@ -67,7 +70,7 @@ export default function SwipeBackShell({ children, background, onBack }) {
       g.startX = touch.clientX;
       g.startY = touch.clientY;
       g.startTime = Date.now();
-      g.candidate = !inHorizontalScroller(e.target);
+      g.candidate = !shouldIgnoreStart(e.target);
       g.engaged = false;
     };
 
