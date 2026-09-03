@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, Gift, Star, Ticket } from "lucide-react";
-import { toggleResponsibility as apiToggleResponsibility, redeemReward as apiRedeemReward, fetchTransactions, useCoupon } from "../api/client";
-import { themeOf, formatDate } from "../utils/format";
+import { ChevronLeft, Gift, Star } from "lucide-react";
+import { toggleResponsibility as apiToggleResponsibility, redeemReward as apiRedeemReward, fetchTransactions } from "../api/client";
+import { themeOf } from "../utils/format";
 import TransactionList from "./TransactionList";
-import RewardWheelModal from "./RewardWheelModal";
 
 // 「今日責任」獨立功能頁：上面打卡，下面用責任值兌換獎勵
 export default function TodayResponsibilityScreen({
@@ -11,9 +10,6 @@ export default function TodayResponsibilityScreen({
   responsibilities,
   responsibilityLogs,
   rewardItems,
-  rewardWheelOptions = [],
-  todaySpin = null,
-  coupons = [],
   today,
   onBack,
   refetch,
@@ -21,8 +17,7 @@ export default function TodayResponsibilityScreen({
   const [submittingId, setSubmittingId] = useState(null);
   const [redeemingId, setRedeemingId] = useState(null);
   const [pointsHistory, setPointsHistory] = useState([]);
-  const [showWheel, setShowWheel] = useState(false);
-  const [usingId, setUsingId] = useState(null);
+
   const theme = themeOf(kid.theme_id);
 
   // 這一頁只看責任值的來龍去脈（打卡加分、家長加減分、兌換扣點）
@@ -45,8 +40,6 @@ export default function TodayResponsibilityScreen({
   );
   const doneCount = responsibilities.filter((r) => doneTodayIds.has(r.id)).length;
   const allDone = responsibilities.length > 0 && doneCount === responsibilities.length;
-  const unusedCoupons = coupons.filter((c) => c.status === "unused");
-  const usedCoupons = coupons.filter((c) => c.status === "used");
 
   const toggle = async (resp) => {
     setSubmittingId(resp.id);
@@ -58,19 +51,6 @@ export default function TodayResponsibilityScreen({
       alert(err.message || "操作失敗");
     } finally {
       setSubmittingId(null);
-    }
-  };
-
-  const spend = async (coupon) => {
-    if (!window.confirm(`要使用「${coupon.label}」這張券嗎？用掉之後就不能再用了。`)) return;
-    setUsingId(coupon.id);
-    try {
-      await useCoupon(coupon.id);
-      await refetch();
-    } catch (err) {
-      alert(err.message || "使用失敗");
-    } finally {
-      setUsingId(null);
     }
   };
 
@@ -158,90 +138,6 @@ export default function TodayResponsibilityScreen({
           })}
         </div>
 
-        {allDone && (
-          <div style={{ marginBottom: 26 }}>
-            {todaySpin ? (
-              <div
-                style={{
-                  background: "#FFF6F0",
-                  border: "2px solid #FFE1CC",
-                  borderRadius: 16,
-                  padding: "14px 16px",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontSize: 12.5, color: "#B4A392", fontWeight: 700 }}>🎡 今天的轉盤獎勵</div>
-                <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 20, fontWeight: 800, color: "#E86A3A", marginTop: 2 }}>
-                  {todaySpin.label}
-                </div>
-                <div style={{ fontSize: 11.5, color: "#C4B4A0", marginTop: 4 }}>明天完成責任後可以再轉一次</div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowWheel(true)}
-                style={{
-                  width: "100%",
-                  border: "none",
-                  borderRadius: 16,
-                  padding: 16,
-                  background: "#E86A3A",
-                  color: "#fff",
-                  fontWeight: 800,
-                  fontSize: 16,
-                  boxShadow: "0 4px 14px rgba(232,106,58,.35)",
-                }}
-              >
-                🎡 今天的獎勵轉盤
-              </button>
-            )}
-          </div>
-        )}
-
-        {unusedCoupons.length > 0 && (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-              <Ticket size={17} color="#94795F" />
-              <span style={{ fontWeight: 800, color: "#8A7457" }}>我的兌換券（{unusedCoupons.length} 張）</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 26 }}>
-              {unusedCoupons.map((c) => (
-                <div
-                  key={c.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    background: "#FFF9F2",
-                    border: "2px dashed #E8C9A8",
-                    borderRadius: 14,
-                    padding: "12px 14px",
-                    opacity: usingId === c.id ? 0.5 : 1,
-                  }}
-                >
-                  <span style={{ fontSize: 20 }}>🎟️</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14.5 }}>{c.label}</div>
-                    <div style={{ fontSize: 11, color: "#B4A392" }}>{formatDate(c.created_at)} 抽到</div>
-                  </div>
-                  <button
-                    onClick={() => spend(c)}
-                    disabled={usingId === c.id}
-                    style={{ border: "none", borderRadius: 10, padding: "9px 14px", background: theme.accent, color: "#fff", fontWeight: 800, fontSize: 13 }}
-                  >
-                    使用
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {usedCoupons.length > 0 && (
-          <div style={{ fontSize: 11.5, color: "#C4B4A0", marginBottom: 22, lineHeight: 1.8 }}>
-            最近用掉的券：{usedCoupons.map((c) => c.label).join("、")}
-          </div>
-        )}
-
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
           <Gift size={17} color="#94795F" />
           <span style={{ fontWeight: 800, color: "#8A7457" }}>用責任值兌換獎勵</span>
@@ -289,14 +185,6 @@ export default function TodayResponsibilityScreen({
         <TransactionList transactions={pointsHistory.slice(0, 20)} />
       </div>
 
-      {showWheel && (
-        <RewardWheelModal
-          kid={kid}
-          options={rewardWheelOptions}
-          onClose={() => setShowWheel(false)}
-          refetch={refetch}
-        />
-      )}
     </div>
   );
 }

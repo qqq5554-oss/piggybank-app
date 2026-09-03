@@ -10,6 +10,8 @@ import SiteAccessScreen from "./components/SiteAccessScreen";
 import QuickRecordScreen from "./components/QuickRecordScreen";
 import TodayResponsibilityScreen from "./components/TodayResponsibilityScreen";
 import ChallengeScreen from "./components/ChallengeScreen";
+import RewardWheelScreen from "./components/RewardWheelScreen";
+import CouponScreen from "./components/CouponScreen";
 import SpinWheelScreen from "./components/SpinWheelScreen";
 import FocusTimerScreen from "./components/FocusTimerScreen";
 import { useFocusTimer } from "./hooks/useFocusTimer";
@@ -91,6 +93,9 @@ export default function App() {
     setActiveKidId(kidId);
     if (actionId === "today") return setScreen("todayResponsibility");
     if (actionId === "challenge") return setScreen("challenge");
+    if (actionId === "rewardWheel") return setScreen("rewardWheel");
+    if (actionId === "coupons") return setScreen("coupons");
+    if (actionId === "account") return setScreen("kidDetail");
     setQuickTab(actionId === "points" ? "points" : actionId); // expense / income / points
     setScreen("quickRecord");
   };
@@ -101,6 +106,8 @@ export default function App() {
       responsibilities={responsibilities}
       responsibilityLogs={responsibilityLogs}
       challenges={challenges}
+      coupons={coupons}
+      rewardSpins={rewardSpins}
       today={today}
       onSelectKid={(id) => {
         setActiveKidId(id);
@@ -125,9 +132,6 @@ export default function App() {
         responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
         responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
         rewardItems={rewardItems}
-        rewardWheelOptions={rewardWheelOptions}
-        todaySpin={rewardSpins.find((s) => s.kid_id === activeKid.id) || null}
-        coupons={coupons.filter((c) => c.kid_id === activeKid.id)}
         today={today}
         onBack={goHome}
         refetch={refetch}
@@ -163,6 +167,31 @@ export default function App() {
         missions={missions.filter((m) => m.kid_id === activeKid.id)}
         rewardItems={rewardItems}
         today={today}
+        onBack={goHome}
+        refetch={refetch}
+      />
+    );
+  } else if (screen === "rewardWheel" && activeKid) {
+    const kidResp = responsibilities.filter((r) => r.kid_id === activeKid.id);
+    const doneToday = responsibilityLogs.filter(
+      (l) => l.kid_id === activeKid.id && String(l.log_date).slice(0, 10) === today
+    ).length;
+    subScreen = (
+      <RewardWheelScreen
+        kid={activeKid}
+        options={rewardWheelOptions}
+        doneCount={doneToday}
+        totalCount={kidResp.length}
+        todaySpin={rewardSpins.find((s) => s.kid_id === activeKid.id) || null}
+        onBack={goHome}
+        refetch={refetch}
+      />
+    );
+  } else if (screen === "coupons" && activeKid) {
+    subScreen = (
+      <CouponScreen
+        kid={activeKid}
+        coupons={coupons.filter((c) => c.kid_id === activeKid.id)}
         onBack={goHome}
         refetch={refetch}
       />

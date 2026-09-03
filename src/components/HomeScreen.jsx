@@ -1,5 +1,5 @@
 import React from "react";
-import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer } from "lucide-react";
+import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer, Gift, Ticket, Wallet } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
 import WeeklyDashboard from "./WeeklyDashboard";
 
@@ -10,6 +10,9 @@ const ACTIONS = [
   { id: "income", label: "收入", Icon: TrendingUp },
   { id: "points", label: "責任", Icon: Star },
   { id: "challenge", label: "挑戰", Icon: Trophy },
+  { id: "rewardWheel", label: "轉盤", Icon: Gift },
+  { id: "coupons", label: "券夾", Icon: Ticket },
+  { id: "account", label: "帳戶", Icon: Wallet },
 ];
 
 export default function HomeScreen({
@@ -17,6 +20,8 @@ export default function HomeScreen({
   responsibilities,
   responsibilityLogs,
   challenges,
+  coupons = [],
+  rewardSpins = [],
   today,
   onSelectKid,
   onAction,
@@ -96,12 +101,18 @@ export default function HomeScreen({
           );
           const doneCount = kidResponsibilities.filter((r) => doneIds.has(r.id)).length;
           const openChallenges = challenges.filter((c) => c.kid_id === kid.id && c.status === "open").length;
+          const unusedCoupons = coupons.filter((c) => c.kid_id === kid.id && c.status === "unused").length;
+          const spunToday = rewardSpins.some((s) => s.kid_id === kid.id);
+          const allDone = kidResponsibilities.length > 0 && doneCount === kidResponsibilities.length;
 
           const badgeFor = (actionId) => {
             if (actionId === "today" && kidResponsibilities.length > 0) {
               return `${doneCount}/${kidResponsibilities.length}`;
             }
             if (actionId === "challenge" && openChallenges > 0) return String(openChallenges);
+            if (actionId === "coupons" && unusedCoupons > 0) return String(unusedCoupons);
+            // 責任全做完又還沒轉，就提示今天可以轉一次
+            if (actionId === "rewardWheel" && allDone && !spunToday) return "可轉";
             return null;
           };
 
@@ -150,7 +161,7 @@ export default function HomeScreen({
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(5, 1fr)",
+                  gridTemplateColumns: "repeat(4, 1fr)",
                   gap: 6,
                   padding: "0 12px 14px",
                 }}
