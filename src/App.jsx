@@ -5,6 +5,7 @@ import { getSitePin, clearSitePin } from "./api/client";
 import { registerServiceWorker } from "./utils/push";
 import HomeScreen from "./components/HomeScreen";
 import KidDetailScreen from "./components/KidDetailScreen";
+import WeeklyReportScreen from "./components/WeeklyReportScreen";
 import ParentDashboard from "./components/ParentDashboard";
 import SiteAccessScreen from "./components/SiteAccessScreen";
 import QuickRecordScreen from "./components/QuickRecordScreen";
@@ -111,16 +112,13 @@ export default function App() {
       today={today}
       onSelectKid={(id) => {
         setActiveKidId(id);
-        setScreen("kidDetail");
+        setScreen("weekly");
       }}
       onAction={handleAction}
       onManage={() => setScreen("manage")}
       onWheel={() => setScreen("wheel")}
       onTimer={() => setScreen("timer")}
       timerLabel={timer.running ? formatRemaining(timer.remainingMs) : null}
-      weekMoney={weekMoney}
-      weekPoints={weekPoints}
-      weekStart={weekStart}
     />
   );
 
@@ -158,6 +156,19 @@ export default function App() {
         initialTab={quickTab}
         onClose={goHome}
         refetch={refetch}
+      />
+    );
+  } else if (screen === "weekly" && activeKid) {
+    subScreen = (
+      <WeeklyReportScreen
+        kid={activeKid}
+        responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
+        responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
+        weekMoney={weekMoney.find((w) => w.kid_id === activeKid.id) || null}
+        weekPoints={weekPoints.find((w) => w.kid_id === activeKid.id)?.points || 0}
+        weekStart={weekStart}
+        today={today}
+        onBack={goHome}
       />
     );
   } else if (screen === "kidDetail" && activeKid) {

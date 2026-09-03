@@ -1,7 +1,6 @@
 import React from "react";
-import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer, Gift, Ticket, Wallet } from "lucide-react";
+import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer, Gift, Ticket, Wallet, ChevronRight } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
-import WeeklyDashboard from "./WeeklyDashboard";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
 const ACTIONS = [
@@ -29,9 +28,6 @@ export default function HomeScreen({
   onWheel,
   onTimer,
   timerLabel = null,
-  weekMoney = [],
-  weekPoints = [],
-  weekStart = null,
 }) {
   return (
     <div style={{ padding: "20px 18px 40px", minHeight: "100vh", boxSizing: "border-box" }}>
@@ -156,6 +152,8 @@ export default function HomeScreen({
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#8A7457" }}>⭐ {kid.character_points || 0}</div>
                 </div>
+                {/* 點這一列會進到本週表現，用箭頭讓人看得出來可以點 */}
+                <ChevronRight size={18} color={theme.accentDark} style={{ opacity: 0.5, marginLeft: -4 }} />
               </button>
 
               <div
@@ -211,16 +209,6 @@ export default function HomeScreen({
           );
         })}
       </div>
-
-      <WeeklyDashboard
-        kids={kids}
-        responsibilities={responsibilities}
-        responsibilityLogs={responsibilityLogs}
-        weekMoney={weekMoney}
-        weekPoints={weekPoints}
-        weekStart={weekStart}
-        today={today}
-      />
     </div>
   );
 }
