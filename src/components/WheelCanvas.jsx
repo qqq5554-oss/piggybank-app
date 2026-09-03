@@ -5,6 +5,108 @@ export const SPIN_MS = 6800; // 轉久一點，期待感拉長
 const SIZE = 300;
 const R = 140;
 
+// 文字可以用的半徑區間：內側離輪心遠一點，字才不會全部擠成放射狀星芒
+const R_TEXT_IN = R * 0.34;
+const R_TEXT_OUT = R * 0.93;
+const TEXT_LEN = R_TEXT_OUT - R_TEXT_IN; // 一行字最多能有多長
+const FONT_MAX = 13;
+const FONT_MIN = 8;
+const LINE_H = 1.15;
+// 跟 global.css 的內文字體一致，量出來的寬度才等於畫出來的寬度
+const FONT_STACK = '"Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif';
+
+// 用 canvas 實際量字寬（中英標點混在一起時，用字數估會差很多）。
+// 量一次 100px 換算成「幾個 em」，之後乘字級就好，結果存起來重複用。
+const emCache = new Map();
+let ctx2d = null;
+const charW = (ch) => (/[\x00-\xff]/.test(ch) ? 0.55 : 1); // 量不到時的備案
+const emWidth = (str) => {
+  if (emCache.has(str)) return emCache.get(str);
+  let em;
+  try {
+    if (!ctx2d) ctx2d = document.createElement("canvas").getContext("2d");
+    ctx2d.font = `800 100px ${FONT_STACK}`;
+    em = ctx2d.measureText(str).width / 100;
+  } catch {
+    em = [...str].reduce((w, ch) => w + charW(ch), 0);
+  }
+  if (!em) em = [...str].reduce((w, ch) => w + charW(ch), 0);
+  emCache.set(str, em);
+  return em;
+};
+
+// 太長的字拆成兩行：在「可以斷的地方」裡挑最接近正中間的那一個。
+// 不可以斷的地方＝英數字中間（會把 Daddy 切成 Dadd / y）、
+// 收尾標點前面（）」，。等不能跑到下一行開頭）、開頭標點後面。
+const CLOSING = "）〉》」』】、，。．：；！？…～)]}!?,.:;";
+const OPENING = "（〈《「『【([{";
+const splitLabel = (label) => {
+  const chars = [...label];
+  if (chars.length < 2) return [label];
+  const isWordChar = (ch) => ch && /[A-Za-z0-9]/.test(ch);
+  const half = emWidth(label) / 2;
+
+  let acc = 0;
+  let best = null;
+  for (let i = 1; i < chars.length; i++) {
+    acc += emWidth(chars[i - 1]);
+    const prev = chars[i - 1];
+    const next = chars[i];
+    if (isWordChar(prev) && isWordChar(next)) continue;
+    if (CLOSING.includes(next) || OPENING.includes(prev)) continue;
+    const dist = Math.abs(acc - half);
+    // 一樣近的話取後面那個，第一行長一點比較好讀
+    if (!best || dist <= best.dist) best = { cut: i, dist };
+  }
+  if (!best) return [label];
+  return [chars.slice(0, best.cut).join("").trim(), chars.slice(best.cut).join("").trim()].filter(Boolean);
+};
+
+const clip = (line, fontSize, maxLen) => {
+  // 留 0.5 的容差，剛好卡在邊界時不要為了半個 pixel 就砍字加「…」
+  if (emWidth(line) * fontSize <= maxLen + 0.5) return line;
+  const chars = [...line];
+  while (chars.length > 1 && emWidth(chars.join("") + "…") * fontSize > maxLen) chars.pop();
+  return chars.join("") + "…";
+};
+
+// 一行（或兩行）字要多寬的扇形才放得下：字級乘行數，上下再留一半的空白
+const arcNeeded = (fontSize, lineCount) =>
+  lineCount === 1 ? fontSize / 0.62 : (fontSize * lineCount * LINE_H) / 0.66;
+
+// 算某個行數下能用多大的字。
+// 扇形愈往外愈寬，所以窄格（機率低的稀有格）的字會自動往外挪，
+// 不會從輪心就開始畫、壓到隔壁格。
+const fitLines = (lines, sweepRad) => {
+  const widest = Math.max(...lines.map(emWidth));
+  const k = arcNeeded(1, lines.length) / sweepRad; // 放得下這個字級的最小內半徑 = k × 字級
+  const fontSize = Math.min(FONT_MAX, TEXT_LEN / widest, R_TEXT_OUT / (widest + k));
+  // 字都靠外緣排，輪心附近留白，整體不會擠成一團
+  const rIn = Math.max(R_TEXT_IN, k * fontSize, R_TEXT_OUT - widest * fontSize);
+  return { fontSize, rIn, maxLen: R_TEXT_OUT - rIn };
+};
+
+// 決定字級與行數：長字先試著折成兩行（比整行一直縮小好讀多了）
+const layoutLabel = (label, sweep) => {
+  const sweepRad = (Math.min(sweep, 360) * Math.PI) / 180;
+  let best = { lines: [label], ...fitLines([label], sweepRad) };
+
+  if (best.fontSize < FONT_MAX * 0.95) {
+    const two = splitLabel(label);
+    if (two.length === 2) {
+      const fit = fitLines(two, sweepRad);
+      if (fit.fontSize > best.fontSize) best = { lines: two, ...fit };
+    }
+  }
+
+  const fontSize = Math.max(FONT_MIN, best.fontSize);
+  return {
+    lines: best.lines.map((l) => clip(l, fontSize, best.maxLen)),
+    fontSize,
+    rMid: (best.rIn + R_TEXT_OUT) / 2,
+  };
+};
+
 // 極座標轉直角座標，0 度在正上方、順時針遞增
 const pointAt = (angleDeg, radius) => {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -87,11 +189,11 @@ export default function WheelCanvas({ options, rotation, spinning, maxWidth = SI
           const [x1, y1] = pointAt(start, R);
           const [x2, y2] = pointAt(start + sweep, R);
           const largeArc = sweep > 180 ? 1 : 0;
-          const [tx, ty] = pointAt(mid, R * 0.62);
           const color = SLICE_COLORS[i % SLICE_COLORS.length];
-          // 很窄的格子塞不下長字，字級縮小、字數也砍短
-          const narrow = sweep < 26;
-          const maxChars = narrow ? 4 : sweep < 40 ? 6 : 9;
+          const { lines, fontSize, rMid } = layoutLabel(opt.label, sweep);
+          const [tx, ty] = pointAt(mid, rMid);
+          // 左半邊的字如果照半徑方向排會變成上下顛倒，多轉 180 度翻正
+          const flip = mid > 90 && mid < 270;
           return (
             <g key={opt.id}>
               {/* 只有一個選項時畫整個圓，不然扇形會退化成一條線 */}
@@ -110,12 +212,17 @@ export default function WheelCanvas({ options, rotation, spinning, maxWidth = SI
                 y={ty}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={narrow ? 9.5 : n > 8 ? 10.5 : 13}
+                fontFamily={FONT_STACK}
+                fontSize={fontSize}
                 fontWeight="800"
                 fill="#5A4632"
-                transform={`rotate(${mid} ${tx} ${ty})`}
+                transform={`rotate(${flip ? mid + 180 : mid} ${tx} ${ty})`}
               >
-                {opt.label.length > maxChars ? opt.label.slice(0, maxChars) + "…" : opt.label}
+                {lines.map((line, li) => (
+                  <tspan key={li} x={tx} dy={li === 0 ? -((lines.length - 1) * fontSize * LINE_H) / 2 : fontSize * LINE_H}>
+                    {line}
+                  </tspan>
+                ))}
               </text>
             </g>
           );
