@@ -11,6 +11,7 @@ export default function RewardWheelScreen({ kid, options, doneCount, totalCount,
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState(null);
+  const [resultEmoji, setResultEmoji] = useState("");
   const [isCoupon, setIsCoupon] = useState(false);
   const [error, setError] = useState("");
   const timerRef = useRef(null);
@@ -25,7 +26,7 @@ export default function RewardWheelScreen({ kid, options, doneCount, totalCount,
     setError("");
     setSpinning(true);
     try {
-      const { optionId, label, coupon } = await spinRewardWheel(kid.id);
+      const { optionId, label, emoji, coupon } = await spinRewardWheel(kid.id);
       const index = Math.max(0, options.findIndex((o) => o.id === optionId));
       setRotation((prev) => rotationForIndex(prev, index, options));
 
@@ -33,6 +34,7 @@ export default function RewardWheelScreen({ kid, options, doneCount, totalCount,
       timerRef.current = setTimeout(async () => {
         setSpinning(false);
         setResult(label);
+        setResultEmoji(emoji || "");
         setIsCoupon(!!coupon);
         await refetch(); // 有加⭐或加錢的格子，這時候才會更新到畫面
       }, SPIN_MS);
@@ -88,6 +90,7 @@ export default function RewardWheelScreen({ kid, options, doneCount, totalCount,
               }}
             >
               <div style={{ fontSize: 12, color: "#B4A392", fontWeight: 700 }}>恭喜抽到</div>
+              {resultEmoji && <div style={{ fontSize: 44, lineHeight: 1.2 }}>{resultEmoji}</div>}
               <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 26, fontWeight: 800, color: "#E86A3A" }}>{result}</div>
               <div style={{ fontSize: 12, color: "#8A7457", marginTop: 6, lineHeight: 1.6 }}>
                 {isCoupon ? "🎟️ 已經存成一張兌換券，什麼時候想用再拿出來" : "已經直接入帳囉"}

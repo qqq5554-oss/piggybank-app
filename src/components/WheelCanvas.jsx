@@ -107,6 +107,22 @@ const layoutLabel = (label, sweep) => {
   };
 };
 
+// emoji 的大小與位置：放在扇形中段偏外，最大 42、窄格會自動縮小；
+// 縮到比 EMOJI_MIN 還小的話就往外挪到放得下的半徑，不要壓到隔壁格
+const EMOJI_MAX = 42;
+const EMOJI_MIN = 20;
+const emojiLayout = (emoji, sweep) => {
+  const sweepRad = (Math.min(sweep, 360) * Math.PI) / 180;
+  const wide = [...emoji].length > 1 ? 2.1 : 1.15; // 兩個 emoji 並排會比較寬
+  let rMid = R * 0.62;
+  let fontSize = Math.min(EMOJI_MAX, (sweepRad * rMid) / wide);
+  if (fontSize < EMOJI_MIN) {
+    fontSize = Math.min(EMOJI_MAX, (sweepRad * R * 0.86) / wide);
+    rMid = R * 0.86 - fontSize * 0.1;
+  }
+  return { fontSize: Math.max(9, fontSize), rMid };
+};
+
 // 極座標轉直角座標，0 度在正上方、順時針遞增
 const pointAt = (angleDeg, radius) => {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -190,8 +206,12 @@ export default function WheelCanvas({ options, rotation, spinning, maxWidth = SI
           const [x2, y2] = pointAt(start + sweep, R);
           const largeArc = sweep > 180 ? 1 : 0;
           const color = SLICE_COLORS[i % SLICE_COLORS.length];
-          const { lines, fontSize, rMid } = layoutLabel(opt.label, sweep);
-          const [tx, ty] = pointAt(mid, rMid);
+          const emoji = (opt.emoji || "").trim();
+          const layout = emoji ? null : layoutLabel(opt.label, sweep);
+          // 有設 emoji 就放一個大圖示（格子窄的話跟著縮小、往外挪），
+          // 沒設的才退回畫文字
+          const emojiSize = emoji ? emojiLayout(emoji, sweep) : null;
+          const [tx, ty] = pointAt(mid, emoji ? emojiSize.rMid : layout.rMid);
           // 左半邊的字如果照半徑方向排會變成上下顛倒，多轉 180 度翻正
           const flip = mid > 90 && mid < 270;
           return (
@@ -207,23 +227,38 @@ export default function WheelCanvas({ options, rotation, spinning, maxWidth = SI
                   strokeWidth="2"
                 />
               )}
-              <text
-                x={tx}
-                y={ty}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontFamily={FONT_STACK}
-                fontSize={fontSize}
-                fontWeight="800"
-                fill="#5A4632"
-                transform={`rotate(${flip ? mid + 180 : mid} ${tx} ${ty})`}
-              >
-                {lines.map((line, li) => (
-                  <tspan key={li} x={tx} dy={li === 0 ? -((lines.length - 1) * fontSize * LINE_H) / 2 : fontSize * LINE_H}>
-                    {line}
-                  </tspan>
-                ))}
-              </text>
+              {/* emoji 是圖不是字，跟著扇形轉會變成躺著；
+                  反向轉回來，盤子停下來時每個圖都是正的 */}
+              {emoji ? (
+                <text
+                  x={tx}
+                  y={ty}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={emojiSize.fontSize}
+                  transform={`rotate(${-rotation} ${tx} ${ty})`}
+                >
+                  {emoji}
+                </text>
+              ) : (
+                <text
+                  x={tx}
+                  y={ty}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontFamily={FONT_STACK}
+                  fontSize={layout.fontSize}
+                  fontWeight="800"
+                  fill="#5A4632"
+                  transform={`rotate(${flip ? mid + 180 : mid} ${tx} ${ty})`}
+                >
+                  {layout.lines.map((line, li) => (
+                    <tspan key={li} x={tx} dy={li === 0 ? -((layout.lines.length - 1) * layout.fontSize * LINE_H) / 2 : layout.fontSize * LINE_H}>
+                      {line}
+                    </tspan>
+                  ))}
+                </text>
+              )}
             </g>
           );
         })}

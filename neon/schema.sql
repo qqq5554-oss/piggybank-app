@@ -363,3 +363,26 @@ alter table wheel_options alter column preset_id set not null;
 -- 比別人小的份數。中獎機率 = 這格份數 ÷ 全部份數，扇形也會照
 -- 份數畫寬窄，看起來就知道哪一格難中。
 alter table reward_wheel_options add column if not exists weight numeric not null default 1;
+
+-- ============================================================
+-- Phase 12 追加（轉盤上改用 emoji 顯示）
+-- ⚠️ 可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 轉盤格子太窄，長標籤怎麼排都會擠；改成盤面上放一個大 emoji，
+-- 轉到的完整文字在結果卡片上顯示。沒設 emoji 的格子還是照舊顯示文字。
+alter table wheel_options add column if not exists emoji text;
+alter table reward_wheel_options add column if not exists emoji text;
+
+-- 給第一次建立時的範例格子補上 emoji（自己改過的不動）
+update wheel_options set emoji = '🍽️' where emoji is null and label = '洗碗';
+update wheel_options set emoji = '🗑️' where emoji is null and label = '倒垃圾';
+update wheel_options set emoji = '🧺' where emoji is null and label = '摺衣服';
+update wheel_options set emoji = '🧹' where emoji is null and label = '掃地';
+
+update reward_wheel_options set emoji = '⏰' where emoji is null and label = '多玩 10 分鐘';
+update reward_wheel_options set emoji = '🍽️' where emoji is null and label = '今天你選晚餐';
+update reward_wheel_options set emoji = '🎫' where emoji is null and label = '免做一次家事';
+update reward_wheel_options set emoji = '⭐' where emoji is null and label = '+1 責任值';
+update reward_wheel_options set emoji = '📖' where emoji is null and label = '睡前多一個故事';
+update reward_wheel_options set emoji = '👕' where emoji is null and label = '選明天的衣服';

@@ -98,7 +98,7 @@ export default function SpinWheelScreen({ wheelOptions, wheelPresets, kids, onBa
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       setSpinning(false);
-      setResult(options[index].label);
+      setResult(options[index]);
     }, SPIN_MS);
   };
 
@@ -300,7 +300,10 @@ export default function SpinWheelScreen({ wheelOptions, wheelPresets, kids, onBa
               }}
             >
               <div style={{ fontSize: 12, color: "#B4A392", fontWeight: 700 }}>結果</div>
-              <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, fontWeight: 800, color: "#E86A3A" }}>{result}</div>
+              <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, fontWeight: 800, color: "#E86A3A" }}>
+                {result.emoji ? `${result.emoji} ` : ""}
+                {result.label}
+              </div>
             </div>
           )}
         </div>
@@ -347,12 +350,12 @@ export default function SpinWheelScreen({ wheelOptions, wheelPresets, kids, onBa
 
             <WheelOptionsEditor
               options={options}
-              onAdd={async ({ label }) => {
-                await addWheelOption(activePreset.id, label, n + 1);
+              onAdd={async ({ label, emoji }) => {
+                await addWheelOption(activePreset.id, label, n + 1, emoji);
                 await refetch();
               }}
-              onUpdate={async (id, { label }) => {
-                await updateWheelOption(id, label);
+              onUpdate={async (id, { label, emoji }) => {
+                await updateWheelOption(id, label, emoji);
                 await refetch();
               }}
               onDelete={async (id) => {

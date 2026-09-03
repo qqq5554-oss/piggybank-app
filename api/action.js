@@ -8,6 +8,14 @@ const sql = neon(process.env.DATABASE_URL);
 // 只要把 action 名稱加回來就會重新要求 PIN。
 const PARENT_ACTIONS = new Set([]);
 
+// 轉盤格子的 emoji：最多兩個字元，空字串一律存成 null，
+// 這樣「沒設 emoji」在資料庫裡只有一種樣子
+function cleanEmoji(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return null;
+  return [...trimmed].slice(0, 2).join("");
+}
+
 async function checkPin(pin) {
   const rows = await sql`select value from app_settings where key = 'parent_pin'`;
   return rows[0]?.value === pin;
@@ -469,7 +477,7 @@ export default async function handler(req, res) {
         }
         await sql.transaction(queries);
 
-        return res.status(200).json({ ok: true, optionId: win.id, label: win.label, coupon: issueCoupon });
+        return res.status(200).json({ ok: true, optionId: win.id, label: win.label, emoji: win.emoji || "", coupon: issueCoupon });
       }
       case "use_coupon": {
         const rows = await sql`
@@ -485,21 +493,22 @@ export default async function handler(req, res) {
         break;
       }
       case "add_reward_wheel_option": {
-        const { label, rewardPoints = 0, rewardMoney = 0, weight = 1, sortOrder = 0 } = payload;
+        const { label, rewardPoints = 0, rewardMoney = 0, weight = 1, sortOrder = 0, emoji = "" } = payload;
         await sql`
-          insert into reward_wheel_options (label, reward_points, reward_money, weight, sort_order)
-          values (${label}, ${rewardPoints}, ${rewardMoney}, ${Math.max(0.01, Number(weight) || 1)}, ${sortOrder})
+          insert into reward_wheel_options (label, reward_points, reward_money, weight, sort_order, emoji)
+          values (${label}, ${rewardPoints}, ${rewardMoney}, ${Math.max(0.01, Number(weight) || 1)}, ${sortOrder}, ${cleanEmoji(emoji)})
         `;
         break;
       }
       case "update_reward_wheel_option": {
-        const { optionId, label, rewardPoints = 0, rewardMoney = 0, weight = 1 } = payload;
+        const { optionId, label, rewardPoints = 0, rewardMoney = 0, weight = 1, emoji = "" } = payload;
         await sql`
           update reward_wheel_options
           set label = ${label},
               reward_points = ${rewardPoints},
               reward_money = ${rewardMoney},
-              weight = ${Math.max(0.01, Number(weight) || 1)}
+              weight = ${Math.max(0.01, Number(weight) || 1)},
+              emoji = ${cleanEmoji(emoji)}
           where id = ${optionId}
         `;
         break;
@@ -519,8 +528,11 @@ export default async function handler(req, res) {
 
       // ------- 小轉盤 -------
       case "add_wheel_option": {
-        const { presetId, label, sortOrder = 0 } = payload;
-        await sql`insert into wheel_options (preset_id, label, sort_order) values (${presetId}, ${label}, ${sortOrder})`;
+        const { presetId, label, sortOrder = 0, emoji = "" } = payload;
+        await sql`
+          insert into wheel_options (preset_id, label, sort_order, emoji)
+          values (${presetId}, ${label}, ${sortOrder}, ${cleanEmoji(emoji)})
+        `;
         break;
       }
       case "add_wheel_preset": {
@@ -543,7 +555,11 @@ export default async function handler(req, res) {
         break;
       }
       case "update_wheel_option": {
-        await sql`update wheel_options set label = ${payload.label} where id = ${payload.optionId}`;
+        await sql`
+          update wheel_options
+          set label = ${payload.label}, emoji = ${cleanEmoji(payload.emoji)}
+          where id = ${payload.optionId}
+        `;
         break;
       }
       case "delete_wheel_option": {

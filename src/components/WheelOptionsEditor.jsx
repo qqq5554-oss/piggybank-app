@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { GripVertical, Plus, X, Pencil, Check } from "lucide-react";
 import { SLICE_COLORS } from "./WheelCanvas";
+import EmojiPicker from "./EmojiPicker";
 
 const ROW_H = 52; // 每一列的高度（含間距），拖曳時用來算要換到第幾個位置
 
@@ -11,10 +12,12 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
   const [items, setItems] = useState(options);
   const [editingId, setEditingId] = useState(null);
   const [editLabel, setEditLabel] = useState("");
+  const [editEmoji, setEditEmoji] = useState("");
   const [editPoints, setEditPoints] = useState("");
   const [editMoney, setEditMoney] = useState("");
   const [editWeight, setEditWeight] = useState("");
   const [newLabel, setNewLabel] = useState("");
+  const [newEmoji, setNewEmoji] = useState("");
   const [newPoints, setNewPoints] = useState("");
   const [newMoney, setNewMoney] = useState("");
   const [newWeight, setNewWeight] = useState("");
@@ -102,6 +105,7 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
   const startEdit = (opt) => {
     setEditingId(opt.id);
     setEditLabel(opt.label);
+    setEditEmoji(opt.emoji || "");
     setEditPoints(Number(opt.reward_points) ? String(Number(opt.reward_points)) : "");
     setEditMoney(Number(opt.reward_money) ? String(Number(opt.reward_money)) : "");
     setEditWeight(String(Number(opt.weight ?? 1)));
@@ -113,6 +117,7 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
     try {
       await onUpdate(editingId, {
         label: editLabel.trim(),
+        emoji: editEmoji.trim(),
         rewardPoints: Number(editPoints) || 0,
         rewardMoney: Number(editMoney) || 0,
         weight: Number(editWeight) || 1,
@@ -131,11 +136,13 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
     try {
       await onAdd({
         label: newLabel.trim(),
+        emoji: newEmoji.trim(),
         rewardPoints: Number(newPoints) || 0,
         rewardMoney: Number(newMoney) || 0,
         weight: Number(newWeight) || 1,
       });
       setNewLabel("");
+      setNewEmoji("");
       setNewPoints("");
       setNewMoney("");
       setNewWeight("");
@@ -170,12 +177,15 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
         {items.map((opt, i) =>
           editingId === opt.id ? (
             <div key={opt.id} style={{ background: "#fff", borderRadius: 12, padding: "10px 12px", marginBottom: 6 }}>
-              <input
-                style={inputStyle}
-                value={editLabel}
-                onChange={(e) => setEditLabel(e.target.value)}
-                placeholder="選項名稱"
-              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <EmojiPicker value={editEmoji} onChange={setEditEmoji} />
+                <input
+                  style={inputStyle}
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  placeholder="選項名稱"
+                />
+              </div>
               {withRewards && (
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <input style={{ ...inputStyle, flex: 1 }} type="number" placeholder="給幾⭐（選填）" value={editPoints} onChange={(e) => setEditPoints(e.target.value)} />
@@ -241,9 +251,13 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
               >
                 <GripVertical size={17} />
               </span>
-              <span
-                style={{ width: 12, height: 12, borderRadius: 4, background: SLICE_COLORS[i % SLICE_COLORS.length], flexShrink: 0 }}
-              />
+              {opt.emoji ? (
+                <span style={{ fontSize: 19, lineHeight: 1, flexShrink: 0 }}>{opt.emoji}</span>
+              ) : (
+                <span
+                  style={{ width: 12, height: 12, borderRadius: 4, background: SLICE_COLORS[i % SLICE_COLORS.length], flexShrink: 0 }}
+                />
+              )}
               <span style={{ flex: 1, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {opt.label}
               </span>
@@ -270,6 +284,7 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
 
       <div style={{ marginTop: 10 }}>
         <div style={{ display: "flex", gap: 8 }}>
+          <EmojiPicker value={newEmoji} onChange={setNewEmoji} />
           <input
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
@@ -297,7 +312,9 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
       </div>
 
       <div style={{ fontSize: 11.5, color: "#C4B4A0", marginTop: 10, lineHeight: 1.7 }}>
-        按住左邊的 ⠿ 上下拖曳可以調整順序，鉛筆可以改文字{withWeights ? "與中獎機率" : ""}。
+        按住左邊的 ⠿ 上下拖曳可以調整順序，鉛筆可以改內容{withWeights ? "與中獎機率" : ""}。
+        <br />
+        設了 emoji 的話，轉盤上就只畫那個 emoji（字太長會擠在一起），完整文字會在轉到結果時顯示。
       </div>
     </div>
   );

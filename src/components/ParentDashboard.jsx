@@ -849,12 +849,12 @@ function RewardWheelManageTab({ options, refetch }) {
         options={options}
         withRewards
         withWeights
-        onAdd={async ({ label, rewardPoints, rewardMoney, weight }) => {
-          await addRewardWheelOption(label, rewardPoints, rewardMoney, weight, options.length + 1);
+        onAdd={async ({ label, rewardPoints, rewardMoney, weight, emoji }) => {
+          await addRewardWheelOption(label, rewardPoints, rewardMoney, weight, options.length + 1, emoji);
           await refetch();
         }}
-        onUpdate={async (id, { label, rewardPoints, rewardMoney, weight }) => {
-          await updateRewardWheelOption(id, label, rewardPoints, rewardMoney, weight);
+        onUpdate={async (id, { label, rewardPoints, rewardMoney, weight, emoji }) => {
+          await updateRewardWheelOption(id, label, rewardPoints, rewardMoney, weight, emoji);
           await refetch();
         }}
         onDelete={async (id) => {

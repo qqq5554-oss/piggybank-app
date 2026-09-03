@@ -136,20 +136,21 @@ export const savePushSubscription = (sub, label) =>
 export const deletePushSubscription = (endpoint) => post("delete_push_subscription", { endpoint });
 
 // ------- 小轉盤 -------
-export const addWheelOption = (presetId, label, sortOrder) => post("add_wheel_option", { presetId, label, sortOrder });
+export const addWheelOption = (presetId, label, sortOrder, emoji = "") =>
+  post("add_wheel_option", { presetId, label, sortOrder, emoji });
 export const addWheelPreset = (name) => post("add_wheel_preset", { name });
 export const renameWheelPreset = (presetId, name) => post("rename_wheel_preset", { presetId, name });
 export const deleteWheelPreset = (presetId) => post("delete_wheel_preset", { presetId });
-export const updateWheelOption = (optionId, label) => post("update_wheel_option", { optionId, label });
+export const updateWheelOption = (optionId, label, emoji = "") => post("update_wheel_option", { optionId, label, emoji });
 export const deleteWheelOption = (optionId) => post("delete_wheel_option", { optionId });
 export const reorderWheelOptions = (ids) => post("reorder_wheel_options", { ids });
 
 // ------- 每日獎勵轉盤 -------
 export const spinRewardWheel = (kidId) => post("spin_reward_wheel", { kidId });
-export const addRewardWheelOption = (label, rewardPoints, rewardMoney, weight, sortOrder) =>
-  post("add_reward_wheel_option", { label, rewardPoints, rewardMoney, weight, sortOrder });
-export const updateRewardWheelOption = (optionId, label, rewardPoints, rewardMoney, weight) =>
-  post("update_reward_wheel_option", { optionId, label, rewardPoints, rewardMoney, weight });
+export const addRewardWheelOption = (label, rewardPoints, rewardMoney, weight, sortOrder, emoji = "") =>
+  post("add_reward_wheel_option", { label, rewardPoints, rewardMoney, weight, sortOrder, emoji });
+export const updateRewardWheelOption = (optionId, label, rewardPoints, rewardMoney, weight, emoji = "") =>
+  post("update_reward_wheel_option", { optionId, label, rewardPoints, rewardMoney, weight, emoji });
 export const deleteRewardWheelOption = (optionId) => post("delete_reward_wheel_option", { optionId });
 export const reorderRewardWheelOptions = (ids) => post("reorder_reward_wheel_options", { ids });
 
