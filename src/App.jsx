@@ -132,8 +132,11 @@ export default function App() {
         responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
         responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
         rewardItems={rewardItems}
+        todaySpin={rewardSpins.find((s) => s.kid_id === activeKid.id) || null}
+        hasWheelOptions={rewardWheelOptions.length > 0}
         today={today}
         onBack={goHome}
+        onGoWheel={() => setScreen("rewardWheel")}
         refetch={refetch}
       />
     );

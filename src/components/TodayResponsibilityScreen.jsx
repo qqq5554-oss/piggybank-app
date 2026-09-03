@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, Gift, Star } from "lucide-react";
+import { ChevronLeft, Gift, Star, ChevronRight } from "lucide-react";
 import { toggleResponsibility as apiToggleResponsibility, redeemReward as apiRedeemReward, fetchTransactions } from "../api/client";
 import { themeOf } from "../utils/format";
 import TransactionList from "./TransactionList";
@@ -10,8 +10,11 @@ export default function TodayResponsibilityScreen({
   responsibilities,
   responsibilityLogs,
   rewardItems,
+  todaySpin = null,
+  hasWheelOptions = false,
   today,
   onBack,
+  onGoWheel,
   refetch,
 }) {
   const [submittingId, setSubmittingId] = useState(null);
@@ -137,6 +140,49 @@ export default function TodayResponsibilityScreen({
             );
           })}
         </div>
+
+        {allDone && hasWheelOptions && (
+          <div style={{ marginBottom: 26, animation: "toastIn .3s ease-out" }}>
+            {todaySpin ? (
+              <div
+                style={{
+                  background: "#FFF6F0",
+                  border: "2px solid #FFE1CC",
+                  borderRadius: 16,
+                  padding: "13px 16px",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontSize: 12, color: "#B4A392", fontWeight: 700 }}>🎁 今天的轉盤獎勵</div>
+                <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 19, fontWeight: 800, color: "#E86A3A", marginTop: 2 }}>
+                  {todaySpin.label}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#C4B4A0", marginTop: 4 }}>明天完成責任後可以再轉一次</div>
+              </div>
+            ) : (
+              <button
+                onClick={onGoWheel}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  borderRadius: 16,
+                  padding: "15px 16px",
+                  background: theme.accentDark,
+                  color: "#fff",
+                  fontWeight: 800,
+                  fontSize: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  boxShadow: "0 4px 14px rgba(90,70,50,.25)",
+                }}
+              >
+                🎁 全部完成！去轉獎勵轉盤 <ChevronRight size={18} />
+              </button>
+            )}
+          </div>
+        )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
           <Gift size={17} color="#94795F" />
