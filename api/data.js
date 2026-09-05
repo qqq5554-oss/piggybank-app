@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     }
 
     const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, wheelPresets, rewardWheelOptions, rewardSpins, coupons, weekMoney, weekPoints, todayRows] = await Promise.all([
-      sql`select * from kids order by created_at`,
+      sql`select * from kids order by sort_order, created_at, id`,
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
       sql`select * from responsibilities order by created_at`,

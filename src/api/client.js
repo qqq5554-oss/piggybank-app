@@ -70,6 +70,7 @@ export const adjustBalance = (kidId, type, amount, note, pin) =>
   post("adjust_balance", { kidId, type, amount, note }, pin);
 export const addKid = (name, avatar, themeId, pin) => post("add_kid", { name, avatar, themeId }, pin);
 export const updateKid = (kidId, fields, pin) => post("update_kid", { kidId, ...fields }, pin);
+export const reorderKids = (ids, pin) => post("reorder_kids", { ids }, pin);
 export const addChore = (name, amount, pin) => post("add_chore", { name, amount }, pin);
 export const deleteChore = (choreId, pin) => post("delete_chore", { choreId }, pin);
 export const updateChore = (choreId, name, amount, pin) => post("update_chore", { choreId, name, amount }, pin);

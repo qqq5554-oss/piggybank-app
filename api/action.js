@@ -176,9 +176,16 @@ export default async function handler(req, res) {
       case "add_kid": {
         const { name, avatar, themeId } = payload;
         await sql`
-          insert into kids (name, avatar, theme_id, balance)
-          values (${name}, ${avatar}, ${themeId}, 0)
+          insert into kids (name, avatar, theme_id, balance, sort_order)
+          values (${name}, ${avatar}, ${themeId}, 0, coalesce((select max(sort_order) + 1 from kids), 1))
         `;
+        break;
+      }
+      case "reorder_kids": {
+        // 前端傳來排好的 id 陣列，依序寫回 sort_order。
+        // 首頁的順序只看這個欄位，加錢扣錢都不會影響。
+        const ids = payload.ids || [];
+        await sql.transaction(ids.map((id, i) => sql`update kids set sort_order = ${i + 1} where id = ${id}`));
         break;
       }
       case "update_kid": {

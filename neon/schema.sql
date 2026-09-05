@@ -386,3 +386,22 @@ update reward_wheel_options set emoji = '🎫' where emoji is null and label = '
 update reward_wheel_options set emoji = '⭐' where emoji is null and label = '+1 責任值';
 update reward_wheel_options set emoji = '📖' where emoji is null and label = '睡前多一個故事';
 update reward_wheel_options set emoji = '👕' where emoji is null and label = '選明天的衣服';
+
+-- ============================================================
+-- Phase 13 追加（固定小孩在首頁的順序）
+-- ⚠️ 可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 原本是 order by created_at，但兩個小孩如果是同一句 insert 建立的，
+-- created_at 會一模一樣；排序打平手時 Postgres 給的順序不保證固定，
+-- 只要有人加錢扣錢（update 過那一列），首頁的上下就可能對調。
+-- 改成用 sort_order 明確決定順序，查詢再用 id 當最後的平手判準。
+alter table kids add column if not exists sort_order integer not null default 0;
+
+-- 第一次執行時，照原本的 created_at 順序填入 1、2、3…
+with ordered as (
+  select id, row_number() over (order by created_at, id) as rn from kids
+)
+update kids set sort_order = ordered.rn
+from ordered
+where kids.id = ordered.id and kids.sort_order = 0;

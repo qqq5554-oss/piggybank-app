@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, Check, X, Plus, Pencil } from "lucide-react";
+import { ChevronLeft, Check, X, Plus, Pencil, ChevronUp, ChevronDown } from "lucide-react";
 import {
   fetchTransactions,
   approveChore,
@@ -7,6 +7,7 @@ import {
   adjustBalance,
   addKid,
   updateKid,
+  reorderKids,
   addChore,
   deleteChore,
   addResponsibility,
@@ -247,6 +248,24 @@ function ReviewTab({ kids, pendingChores, missions, pin, refetch }) {
 function KidsManageTab({ kids, pin, refetch }) {
   const [openId, setOpenId] = useState(kids[0]?.id || null);
   const [addingKid, setAddingKid] = useState(false);
+  const [moving, setMoving] = useState(false);
+
+  // 首頁卡片的上下順序照這裡排；加錢扣錢都不會影響
+  const move = async (index, dir) => {
+    const to = index + dir;
+    if (to < 0 || to >= kids.length || moving) return;
+    const next = kids.map((k) => k.id);
+    [next[index], next[to]] = [next[to], next[index]];
+    setMoving(true);
+    try {
+      await reorderKids(next, pin);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setMoving(false);
+    }
+  };
 
   const handleAddKid = async () => {
     const usedThemes = kids.map((k) => k.theme_id);
@@ -264,8 +283,23 @@ function KidsManageTab({ kids, pin, refetch }) {
 
   return (
     <div>
-      {kids.map((kid) => (
-        <KidManageCard key={kid.id} kid={kid} isOpen={openId === kid.id} onToggle={() => setOpenId(openId === kid.id ? null : kid.id)} pin={pin} refetch={refetch} />
+      {kids.length > 1 && (
+        <div style={{ fontSize: 11.5, color: "#C4B4A0", marginBottom: 8, lineHeight: 1.7 }}>
+          用右邊的箭頭調整首頁卡片的上下順序，排好之後就固定不動。
+        </div>
+      )}
+      {kids.map((kid, i) => (
+        <div key={kid.id} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <KidManageCard kid={kid} isOpen={openId === kid.id} onToggle={() => setOpenId(openId === kid.id ? null : kid.id)} pin={pin} refetch={refetch} />
+          </div>
+          {kids.length > 1 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 14 }}>
+              <MoveButton dir="up" disabled={i === 0 || moving} onClick={() => move(i, -1)} />
+              <MoveButton dir="down" disabled={i === kids.length - 1 || moving} onClick={() => move(i, 1)} />
+            </div>
+          )}
+        </div>
       ))}
       <button
         onClick={handleAddKid}
@@ -275,6 +309,30 @@ function KidsManageTab({ kids, pin, refetch }) {
         <Plus size={18} /> {addingKid ? "新增中..." : "新增小朋友"}
       </button>
     </div>
+  );
+}
+
+function MoveButton({ dir, disabled, onClick }) {
+  const Icon = dir === "up" ? ChevronUp : ChevronDown;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={dir === "up" ? "往上移" : "往下移"}
+      style={{
+        width: 30,
+        height: 28,
+        borderRadius: 9,
+        border: "none",
+        background: "#F1E7DC",
+        opacity: disabled ? 0.35 : 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Icon size={16} color="#8A7457" />
+    </button>
   );
 }
 
