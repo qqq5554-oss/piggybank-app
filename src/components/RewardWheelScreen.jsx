@@ -1,18 +1,23 @@
 import React, { useState, useRef } from "react";
-import { ChevronLeft } from "lucide-react";
-import { spinRewardWheel } from "../api/client";
+import { ChevronLeft, KeyRound } from "lucide-react";
+import { spinRewardWheel, spinRewardWheelBonus } from "../api/client";
 import WheelCanvas, { rotationForIndex, SPIN_MS } from "./WheelCanvas";
+import PinPadModal from "./PinPadModal";
 import { themeOf } from "../utils/format";
 
 // 每日獎勵轉盤（獨立頁）。
 // 抽獎是後端決定的（重新整理也沒辦法重抽），前端只負責把轉盤轉到
 // 那一格；「今天責任要全做完」跟「一天一次」的限制也都在後端擋。
+// 另外家長可以輸入家長密碼「加碼」轉一次：不用完成責任、不限次數，
+// 也不會吃掉小孩自己把責任做完換來的那一次。
 export default function RewardWheelScreen({ kid, options, doneCount, totalCount, todaySpin, onBack, refetch }) {
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState(null);
   const [resultEmoji, setResultEmoji] = useState("");
   const [isCoupon, setIsCoupon] = useState(false);
+  const [isBonus, setIsBonus] = useState(false);
+  const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState("");
   const timerRef = useRef(null);
   const theme = themeOf(kid.theme_id);
@@ -20,28 +25,46 @@ export default function RewardWheelScreen({ kid, options, doneCount, totalCount,
   const allDone = totalCount > 0 && doneCount === totalCount;
   const alreadySpun = !!todaySpin;
   const canSpin = allDone && !alreadySpun && options.length > 0;
+  // 正常轉不了（還沒做完、或今天轉過了）的時候，才出現家長加碼的入口
+  const canBonus = options.length > 0 && !spinning && (!canSpin || !!result);
+
+  // 後端已經決定好中哪一格，這裡只負責把轉盤轉過去、停下來再顯示結果
+  const animateTo = ({ optionId, label, emoji, coupon }, bonus) => {
+    setResult(null);
+    setSpinning(true);
+    const index = Math.max(0, options.findIndex((o) => o.id === optionId));
+    setRotation((prev) => rotationForIndex(prev, index, options));
+
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      setSpinning(false);
+      setResult(label);
+      setResultEmoji(emoji || "");
+      setIsCoupon(!!coupon);
+      setIsBonus(bonus);
+      await refetch(); // 有加⭐或加錢的格子，這時候才會更新到畫面
+    }, SPIN_MS);
+  };
 
   const spin = async () => {
     if (spinning || !canSpin) return;
     setError("");
     setSpinning(true);
     try {
-      const { optionId, label, emoji, coupon } = await spinRewardWheel(kid.id);
-      const index = Math.max(0, options.findIndex((o) => o.id === optionId));
-      setRotation((prev) => rotationForIndex(prev, index, options));
-
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(async () => {
-        setSpinning(false);
-        setResult(label);
-        setResultEmoji(emoji || "");
-        setIsCoupon(!!coupon);
-        await refetch(); // 有加⭐或加錢的格子，這時候才會更新到畫面
-      }, SPIN_MS);
+      animateTo(await spinRewardWheel(kid.id), false);
     } catch (e) {
       setSpinning(false);
       setError(e.message || "轉盤失敗");
     }
+  };
+
+  // 密碼錯誤會丟錯，PinPadModal 會顯示錯誤、清空讓家長重打
+  const bonusSpin = async (parentPin) => {
+    const r = await spinRewardWheelBonus(kid.id, parentPin);
+    setShowPin(false);
+    setError("");
+    animateTo(r, true);
+    return true;
   };
 
   const statusText = () => {
@@ -69,7 +92,7 @@ export default function RewardWheelScreen({ kid, options, doneCount, totalCount,
           {statusText()}
         </div>
 
-        <div style={{ opacity: canSpin || result || alreadySpun ? 1 : 0.45, transition: "opacity .2s" }}>
+        <div style={{ opacity: canSpin || result || alreadySpun || spinning ? 1 : 0.45, transition: "opacity .2s" }}>
           <WheelCanvas options={options} rotation={rotation} spinning={spinning} />
         </div>
 
@@ -89,6 +112,22 @@ export default function RewardWheelScreen({ kid, options, doneCount, totalCount,
                 animation: "toastIn .25s ease-out",
               }}
             >
+              {isBonus && (
+                <div
+                  style={{
+                    display: "inline-block",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "#94795F",
+                    background: "#F1E7DC",
+                    borderRadius: 8,
+                    padding: "2px 8px",
+                    marginBottom: 6,
+                  }}
+                >
+                  🔑 家長加碼
+                </div>
+              )}
               <div style={{ fontSize: 12, color: "#B4A392", fontWeight: 700 }}>恭喜抽到</div>
               {resultEmoji && <div style={{ fontSize: 44, lineHeight: 1.2 }}>{resultEmoji}</div>}
               <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 26, fontWeight: 800, color: "#E86A3A" }}>{result}</div>
@@ -126,7 +165,37 @@ export default function RewardWheelScreen({ kid, options, doneCount, totalCount,
         )}
 
         {error && <div style={{ marginTop: 12, color: "#E85D5D", fontWeight: 700, fontSize: 13 }}>{error}</div>}
+
+        {canBonus && (
+          <button
+            onClick={() => setShowPin(true)}
+            style={{
+              marginTop: 16,
+              border: "2px dashed #D8C6B0",
+              borderRadius: 14,
+              padding: "10px 18px",
+              background: "none",
+              color: "#8A7457",
+              fontWeight: 800,
+              fontSize: 13.5,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <KeyRound size={15} /> 家長加碼轉一次
+          </button>
+        )}
       </div>
+
+      {showPin && (
+        <PinPadModal
+          title="🔑 家長加碼"
+          hint={"輸入家長密碼，不用完成今日責任就可以轉一次\n也不會佔掉小孩自己做完責任的那一次"}
+          onSubmit={bonusSpin}
+          onClose={() => setShowPin(false)}
+        />
+      )}
     </div>
   );
 }

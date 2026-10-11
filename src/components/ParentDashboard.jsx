@@ -29,6 +29,7 @@ import {
   updateAllowanceRule,
   updateExpenseRule,
   changeSitePin,
+  changePin,
   setSitePin,
   addRewardItem,
   deleteRewardItem,
@@ -1527,6 +1528,32 @@ function SettingsTab({ pin, vapidPublicKey }) {
       .catch(() => setPushOn(false));
   }, []);
 
+  const [parentOld, setParentOld] = useState("");
+  const [parentNew1, setParentNew1] = useState("");
+  const [parentNew2, setParentNew2] = useState("");
+  const [parentMsg, setParentMsg] = useState("");
+  const [savingParent, setSavingParent] = useState(false);
+
+  // 家長密碼：獎勵轉盤「家長加碼」要用。改的時候要先輸入舊的，
+  // 不然小孩自己來這裡改掉，就可以無限加碼轉
+  const doChangeParentPin = async () => {
+    if (!/^\d{4}$/.test(parentOld)) return setParentMsg("請先輸入目前的家長密碼（4 碼）");
+    if (!/^\d{4}$/.test(parentNew1)) return setParentMsg("新密碼需為 4 碼數字");
+    if (parentNew1 !== parentNew2) return setParentMsg("兩次新密碼不一致");
+    setSavingParent(true);
+    try {
+      await changePin(parentNew1, parentOld);
+      setParentOld("");
+      setParentNew1("");
+      setParentNew2("");
+      setParentMsg("家長密碼已更新 ✅");
+    } catch (e) {
+      setParentMsg(e.message === "密碼錯誤" ? "目前的家長密碼不對" : e.message);
+    } finally {
+      setSavingParent(false);
+    }
+  };
+
   const doChangeSitePin = async () => {
     if (sitePin1.length !== 4 || !/^\d{4}$/.test(sitePin1)) return setSiteMsg("密碼需為 4 碼數字");
     if (sitePin1 !== sitePin2) return setSiteMsg("兩次密碼不一致");
@@ -1615,6 +1642,20 @@ function SettingsTab({ pin, vapidPublicKey }) {
         {savingSite ? "更新中..." : "更新進站密碼"}
       </button>
       {siteMsg && <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#8A6E3D" }}>{siteMsg}</div>}
+
+      <div style={{ height: 1, background: "#F1E7DC", margin: "20px 0" }} />
+
+      <label style={labelStyle}>🔑 修改家長密碼（獎勵轉盤「家長加碼」用）</label>
+      <div style={{ fontSize: 11.5, color: "#B4A392", marginBottom: 8, lineHeight: 1.6 }}>
+        沒改過的話預設是 0000，建議改掉，不然小孩猜得到。
+      </div>
+      <input style={{ ...inputStyle, marginBottom: 8 }} type="password" inputMode="numeric" placeholder="目前的家長密碼" maxLength={4} value={parentOld} onChange={(e) => setParentOld(e.target.value.replace(/\D/g, ""))} />
+      <input style={{ ...inputStyle, marginBottom: 8 }} type="password" inputMode="numeric" placeholder="新密碼（4碼數字）" maxLength={4} value={parentNew1} onChange={(e) => setParentNew1(e.target.value.replace(/\D/g, ""))} />
+      <input style={inputStyle} type="password" inputMode="numeric" placeholder="再輸入一次" maxLength={4} value={parentNew2} onChange={(e) => setParentNew2(e.target.value.replace(/\D/g, ""))} />
+      <button onClick={doChangeParentPin} disabled={savingParent} style={{ ...primaryBtnStyle, background: "#5A4632", marginTop: 10, opacity: savingParent ? 0.6 : 1 }}>
+        {savingParent ? "更新中..." : "更新家長密碼"}
+      </button>
+      {parentMsg && <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#8A6E3D" }}>{parentMsg}</div>}
     </div>
   );
 }

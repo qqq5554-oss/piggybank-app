@@ -3,10 +3,11 @@ import { pickWeightedIndex } from "../lib/weightedPick.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
-// 家長專區的 PIN 已經取消，所有操作只要通過「進站密碼」就能執行。
-// 這個集合先留空（不是刪掉），之後想恢復某些動作的密碼保護時，
-// 只要把 action 名稱加回來就會重新要求 PIN。
-const PARENT_ACTIONS = new Set([]);
+// 家長專區的 PIN 已經取消，大部分操作只要通過「進站密碼」就能執行。
+// 只有少數「小孩不能自己做」的動作放在這裡，要再輸入家長密碼：
+// - 加碼轉獎勵轉盤（不用完成責任就能轉）
+// - 改家長密碼本身（要先輸入舊的，不然小孩改掉就能自己無限轉）
+const PARENT_ACTIONS = new Set(["spin_reward_wheel_bonus", "change_pin"]);
 
 // 轉盤格子的 emoji：最多兩個字元，空字串一律存成 null，
 // 這樣「沒設 emoji」在資料庫裡只有一種樣子
@@ -14,6 +15,41 @@ function cleanEmoji(value) {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) return null;
   return [...trimmed].slice(0, 2).join("");
+}
+
+// 獎勵轉盤抽一格：weight 就是「這格佔幾份」，份數多的比較容易中。
+// 抽獎在後端決定，重新整理也沒辦法重抽。
+async function drawRewardOption() {
+  const options = await sql`select * from reward_wheel_options order by sort_order, created_at`;
+  if (options.length === 0) return null;
+  return options[pickWeightedIndex(options.map((o) => o.weight ?? 1))];
+}
+
+// 把抽中的那一格發給小孩：有給⭐或錢的直接入帳；其他的（例如「今天你選晚餐」）
+// 不一定當下能用，所以發一張兌換券進券夾，之後再核銷
+function prizeQueries(kidId, win, { source, reasonPrefix }) {
+  const points = Number(win.reward_points) || 0;
+  const money = Number(win.reward_money) || 0;
+  const issueCoupon = points === 0 && money === 0;
+  const queries = [];
+  if (issueCoupon) {
+    queries.push(sql`insert into coupons (kid_id, label, source) values (${kidId}, ${win.label}, ${source})`);
+  }
+  if (points > 0) {
+    queries.push(sql`
+      insert into character_point_logs (kid_id, delta, reason)
+      values (${kidId}, ${win.reward_points}, ${reasonPrefix + win.label})
+    `);
+    queries.push(sql`update kids set character_points = character_points + ${win.reward_points} where id = ${kidId}`);
+  }
+  if (money > 0) {
+    queries.push(sql`
+      insert into transactions (kid_id, type, amount, note)
+      values (${kidId}, 'income', ${win.reward_money}, ${reasonPrefix + win.label})
+    `);
+    queries.push(sql`update kids set balance = balance + ${win.reward_money} where id = ${kidId}`);
+  }
+  return { queries, issueCoupon };
 }
 
 async function checkPin(pin) {
@@ -214,7 +250,9 @@ export default async function handler(req, res) {
         break;
       }
       case "change_pin": {
+        // 舊密碼已經在上面 PARENT_ACTIONS 那關驗過了
         const { newPin } = payload;
+        if (!/^\d{4}$/.test(String(newPin || ""))) return res.status(400).json({ error: "家長密碼需為 4 碼數字" });
         await sql`update app_settings set value = ${newPin} where key = 'parent_pin'`;
         break;
       }
@@ -444,45 +482,29 @@ export default async function handler(req, res) {
         const already = await sql`select label from reward_spins where kid_id = ${kidId} and spin_date = current_date`;
         if (already[0]) return res.status(400).json({ error: `今天已經轉過了（${already[0].label}）` });
 
-        const options = await sql`select * from reward_wheel_options order by sort_order, created_at`;
-        if (options.length === 0) return res.status(400).json({ error: "還沒有設定獎勵轉盤的格子" });
+        const win = await drawRewardOption();
+        if (!win) return res.status(400).json({ error: "還沒有設定獎勵轉盤的格子" });
 
-        // 加權抽獎：weight 就是「這格佔幾份」，份數多的比較容易中。
-        // 抽獎在後端決定，重新整理也沒辦法重抽。
-        const winIndex = pickWeightedIndex(options.map((o) => o.weight ?? 1));
-        const win = options[winIndex];
-        const points = Number(win.reward_points) || 0;
-        const money = Number(win.reward_money) || 0;
-        // 有給⭐或錢的格子直接入帳；其他的（例如「今天你選晚餐」）
-        // 不一定當下能用，所以發一張兌換券進券夾，之後再核銷
-        const issueCoupon = points === 0 && money === 0;
-
-        const queries = [
+        const { queries, issueCoupon } = prizeQueries(kidId, win, { source: "wheel", reasonPrefix: "轉盤獎勵：" });
+        await sql.transaction([
           sql`
             insert into reward_spins (kid_id, spin_date, option_id, label)
             values (${kidId}, current_date, ${win.id}, ${win.label})
           `,
-        ];
-        if (issueCoupon) {
-          queries.push(sql`
-            insert into coupons (kid_id, label, source) values (${kidId}, ${win.label}, 'wheel')
-          `);
-        }
-        if (Number(win.reward_points) > 0) {
-          queries.push(sql`
-            insert into character_point_logs (kid_id, delta, reason)
-            values (${kidId}, ${win.reward_points}, ${"轉盤獎勵：" + win.label})
-          `);
-          queries.push(sql`update kids set character_points = character_points + ${win.reward_points} where id = ${kidId}`);
-        }
-        if (Number(win.reward_money) > 0) {
-          queries.push(sql`
-            insert into transactions (kid_id, type, amount, note)
-            values (${kidId}, 'income', ${win.reward_money}, ${"轉盤獎勵：" + win.label})
-          `);
-          queries.push(sql`update kids set balance = balance + ${win.reward_money} where id = ${kidId}`);
-        }
-        await sql.transaction(queries);
+          ...queries,
+        ]);
+
+        return res.status(200).json({ ok: true, optionId: win.id, label: win.label, emoji: win.emoji || "", coupon: issueCoupon });
+      }
+      case "spin_reward_wheel_bonus": {
+        // 家長加碼：已經在上面驗過家長密碼了，所以不檢查今日責任、也不限一天一次。
+        // 不寫進 reward_spins，這樣不會吃掉小孩自己把責任做完換來的那一次。
+        const { kidId } = payload;
+        const win = await drawRewardOption();
+        if (!win) return res.status(400).json({ error: "還沒有設定獎勵轉盤的格子" });
+
+        const { queries, issueCoupon } = prizeQueries(kidId, win, { source: "bonus", reasonPrefix: "加碼轉盤：" });
+        if (queries.length) await sql.transaction(queries);
 
         return res.status(200).json({ ok: true, optionId: win.id, label: win.label, emoji: win.emoji || "", coupon: issueCoupon });
       }

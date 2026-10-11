@@ -148,6 +148,8 @@ export const reorderWheelOptions = (ids) => post("reorder_wheel_options", { ids 
 
 // ------- 每日獎勵轉盤 -------
 export const spinRewardWheel = (kidId) => post("spin_reward_wheel", { kidId });
+// 家長加碼：要家長密碼，不用完成今日責任、也不佔掉當天那一次
+export const spinRewardWheelBonus = (kidId, parentPin) => post("spin_reward_wheel_bonus", { kidId }, parentPin);
 export const addRewardWheelOption = (label, rewardPoints, rewardMoney, weight, sortOrder, emoji = "") =>
   post("add_reward_wheel_option", { label, rewardPoints, rewardMoney, weight, sortOrder, emoji });
 export const updateRewardWheelOption = (optionId, label, rewardPoints, rewardMoney, weight, emoji = "") =>
