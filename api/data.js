@@ -51,7 +51,8 @@ export default async function handler(req, res) {
       sql`select to_char(current_date, 'YYYY-MM-DD') as today, to_char(date_trunc('week', current_date), 'YYYY-MM-DD') as week_start`,
       // 小寵物。新功能的表如果 SQL 還沒跑，這裡回空陣列就好，
       // 不要讓整個首頁跟著讀取失敗（之前發生過一次整頁空白）
-      sql`select kid_id, name, fullness, fullness_at, to_char(last_gift_date, 'YYYY-MM-DD') as last_gift_date, last_gift_label, total_fed from pets`.catch(() => []),
+      // 用 select *：之後加的欄位（species、hatched_at）還沒建的時候也照樣能讀
+      sql`select *, to_char(last_gift_date, 'YYYY-MM-DD') as last_gift_day from pets`.catch(() => []),
     ]);
     // 「今天」以資料庫伺服器的 current_date 為準，不要用瀏覽器自己算的日期，
     // 避免裝置時區跟資料庫時區對不起來，導致今天打的卡永遠比對不到。
@@ -80,7 +81,8 @@ export default async function handler(req, res) {
       weekPoints,
       today,
       weekStart,
-      pets,
+      // last_gift_date 是 date 型別，轉成純文字 YYYY-MM-DD 才不會被時區弄錯一天
+      pets: pets.map(({ last_gift_day, ...p }) => ({ ...p, last_gift_date: last_gift_day })),
       // 推播用的公開金鑰，前端訂閱推播時要用（公開金鑰本來就可以給瀏覽器看）
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
     });

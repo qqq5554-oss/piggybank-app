@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { pickWeightedIndex } from "../lib/weightedPick.js";
-import { PET_FOODS, PET_DECAY_PER_HOUR, PET_TOO_FULL, PET_RANDOM_GIFT_CHANCE, currentFullness } from "../lib/petRules.js";
+import { PET_FOODS, PET_DECAY_PER_HOUR, PET_TOO_FULL, PET_RANDOM_GIFT_CHANCE, PET_SPECIES, PET_DEFAULT_NAMES, currentFullness, petStage } from "../lib/petRules.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
@@ -8,7 +8,8 @@ const sql = neon(process.env.DATABASE_URL);
 // 只有少數「小孩不能自己做」的動作放在這裡，要再輸入家長密碼：
 // - 加碼轉獎勵轉盤（不用完成責任就能轉）
 // - 改家長密碼本身（要先輸入舊的，不然小孩改掉就能自己無限轉）
-const PARENT_ACTIONS = new Set(["spin_reward_wheel_bonus", "change_pin"]);
+// - 換寵物（重新選蛋），不然小孩會一直換
+const PARENT_ACTIONS = new Set(["spin_reward_wheel_bonus", "change_pin", "reset_pet"]);
 
 // 轉盤格子的 emoji：最多兩個字元，空字串一律存成 null，
 // 這樣「沒設 emoji」在資料庫裡只有一種樣子
@@ -519,6 +520,10 @@ export default async function handler(req, res) {
 
         await sql`insert into pets (kid_id) values (${kidId}) on conflict (kid_id) do nothing`;
 
+        // 還是蛋（或還沒選蛋）不能餵
+        const petRow = await sql`select * from pets where kid_id = ${kidId}`;
+        if (petStage(petRow[0]).stage !== "hatched") return res.status(400).json({ error: "還是一顆蛋，要先孵出來才能吃東西喔" });
+
         // 一句 SQL 做完「確認吃得下 → 扣星星 → 記一筆 → 加飽足度」，
         // 中間任何一步不成立就全部不做，不會發生扣了星星卻沒餵到。
         // 飽足度直接用那一列當下的值算，連按兩下也會正確疊加。
@@ -600,6 +605,37 @@ export default async function handler(req, res) {
         }
 
         return res.status(200).json({ ok: true, fullness, gift });
+      }
+      case "choose_pet": {
+        // 選一顆蛋。只有「還沒選」的時候可以選，換寵物要走 reset_pet（要家長密碼）
+        const { kidId, species } = payload;
+        const info = PET_SPECIES[species];
+        if (!info) return res.status(400).json({ error: "沒有這種寵物" });
+        await sql`insert into pets (kid_id) values (${kidId}) on conflict (kid_id) do nothing`;
+        const rows = await sql`
+          update pets set
+            species = ${species},
+            hatched_at = null,
+            -- 名字還是預設名字的話換成這種寵物的預設名字，自己取過的名字就保留
+            name = case when name = any(${PET_DEFAULT_NAMES}::text[]) then ${info.defaultName} else name end
+          where kid_id = ${kidId} and species is null
+          returning id
+        `;
+        if (!rows[0]) return res.status(400).json({ error: "已經選過蛋了" });
+        break;
+      }
+      case "hatch_pet": {
+        // 孵化：從這一刻開始算飽足度，先給牠六分飽
+        await sql`
+          update pets set hatched_at = now(), fullness = 60, fullness_at = now()
+          where kid_id = ${payload.kidId} and species is not null and hatched_at is null
+        `;
+        break;
+      }
+      case "reset_pet": {
+        // 換寵物：回到選蛋，名字保留（家長密碼已經在上面驗過）
+        await sql`update pets set species = null, hatched_at = null where kid_id = ${payload.kidId}`;
+        break;
       }
       case "rename_pet": {
         const name = String(payload.name || "").trim().slice(0, 10);

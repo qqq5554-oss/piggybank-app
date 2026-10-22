@@ -150,6 +150,10 @@ export const reorderWheelOptions = (ids) => post("reorder_wheel_options", { ids 
 // 小寵物：用責任值星星買食物餵牠
 export const feedPet = (kidId, foodId) => post("feed_pet", { kidId, foodId });
 export const renamePet = (kidId, name) => post("rename_pet", { kidId, name });
+export const choosePet = (kidId, species) => post("choose_pet", { kidId, species });
+export const hatchPet = (kidId) => post("hatch_pet", { kidId });
+// 換寵物（回到選蛋）要家長密碼
+export const resetPet = (kidId, parentPin) => post("reset_pet", { kidId }, parentPin);
 
 export const spinRewardWheel = (kidId) => post("spin_reward_wheel", { kidId });
 // 家長加碼：要家長密碼，不用完成今日責任、也不佔掉當天那一次

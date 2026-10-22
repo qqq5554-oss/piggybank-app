@@ -3,7 +3,7 @@ import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer, G
 import { currency, themeOf } from "../utils/format";
 import PetLCD from "./pet/PetLCD";
 import PixelHeart from "./pet/PixelHeart";
-import { currentFullness, heartsOf } from "../../lib/petRules.js";
+import { currentFullness, heartsOf, petStage, PET_SPECIES } from "../../lib/petRules.js";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
 const ACTIONS = [
@@ -223,11 +223,28 @@ export default function HomeScreen({
 
 // 卡片下面的寵物小螢幕：一眼看出牠餓不餓，點了進寵物頁
 function PetStrip({ pet, fullness, theme, onOpen }) {
+  const { stage, species } = petStage(pet);
+  const hatched = stage === "hatched";
   const hearts = heartsOf(fullness);
   const h = new Date().getHours();
   const sleeping = h >= 21 || h < 7;
-  const status = fullness <= 0 ? "餓扁了！" : fullness < 30 ? "肚子餓了！" : sleeping ? "睡覺中 💤" : fullness > 90 ? "吃飽飽" : "";
-  const urgent = fullness < 30;
+  const title =
+    stage === "choose" ? "還沒有寵物" : stage === "egg" ? `${PET_SPECIES[species]?.name || ""}的蛋` : pet.name || "小團子";
+  const status =
+    stage === "choose"
+      ? "點進來選一顆蛋！"
+      : stage === "egg"
+      ? "點進來幫牠孵化 🥚"
+      : fullness <= 0
+      ? "餓扁了！"
+      : fullness < 30
+      ? "肚子餓了！"
+      : sleeping
+      ? "睡覺中 💤"
+      : fullness > 90
+      ? "吃飽飽"
+      : "";
+  const urgent = hatched && fullness < 30;
   return (
     <button
       onClick={onOpen}
@@ -245,19 +262,21 @@ function PetStrip({ pet, fullness, theme, onOpen }) {
       }}
     >
       <div style={{ width: 132, flexShrink: 0, borderRadius: 8, overflow: "hidden", border: "3px solid #4B3F33" }}>
-        <PetLCD cols={44} rows={17} fullness={fullness} compact />
+        <PetLCD cols={44} rows={17} fullness={fullness} species={species || "dango"} stage={stage} compact />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 13.5, color: "#5A4632", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {pet.name || "小團子"}
+          {title}
         </div>
-        <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <PixelHeart key={i} full={i < hearts} size={13} color={theme.accentDark} />
-          ))}
-        </div>
+        {hatched && (
+          <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <PixelHeart key={i} full={i < hearts} size={13} color={theme.accentDark} />
+            ))}
+          </div>
+        )}
         {status && (
-          <div style={{ fontSize: 11, fontWeight: 800, marginTop: 3, color: urgent ? "#E85D5D" : "#94795F" }}>{status}</div>
+          <div style={{ fontSize: 11, fontWeight: 800, marginTop: 3, color: urgent ? "#E85D5D" : hatched ? "#94795F" : theme.accentDark }}>{status}</div>
         )}
       </div>
       <ChevronRight size={16} color={theme.accentDark} style={{ opacity: 0.5, flexShrink: 0 }} />

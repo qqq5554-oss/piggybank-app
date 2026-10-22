@@ -429,3 +429,14 @@ create table if not exists pets (
 insert into pets (kid_id)
 select id from kids
 on conflict (kid_id) do nothing;
+
+-- ============================================================
+-- Phase 15 追加（寵物可以選刺蝟／兔子／小團子，從蛋開始孵）
+-- ⚠️ 可以直接在既有資料庫上執行
+-- ============================================================
+
+-- species：hedgehog / rabbit / dango，null 代表還沒選蛋
+-- hatched_at：孵出來的時間，null 代表還是一顆蛋
+-- 已經有的寵物兩欄都是 null → 會回到「選一顆蛋」，小孩可以重新選、重新孵
+alter table pets add column if not exists species text;
+alter table pets add column if not exists hatched_at timestamptz;
