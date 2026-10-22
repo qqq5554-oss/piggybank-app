@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useReducer, useRef } from "react";
-import { FOODS, FX, SPECIES, MYSTERY_EGG, CRACKS, petFace } from "./sprites";
+import { FOODS, FX, PROPS, SPECIES, MYSTERY_EGG, CRACKS, petFace } from "./sprites";
 import { moodOf } from "../../../lib/petRules.js";
+import { pickActivity, startActivity, stepActivity, viewActivity } from "./activities";
 
 // 經典電子雞的單色液晶：淡綠底、深綠點，還有沒亮的格子淡淡的殘影
 export const LCD_BG = "#C7D1A6";
@@ -21,6 +22,8 @@ const chance = (p) => Math.random() < p;
 // species：hedgehog / rabbit / dango；stage：choose（神秘蛋）/ egg（選好的蛋）/ hatched
 // crack：蛋殼裂到第幾階段（0～3）
 // compact：首頁卡片上的小螢幕，高度只夠放寵物本身，不畫頭上的特效。
+// 心情不錯的白天，牠會自己找事情做（玩球、散步…），開始／結束時呼叫 onActivity(type | null)。
+// hasNews：今天有話想說還沒被看過，頭旁邊會不時冒出「！」對話框。
 export default function PetLCD({
   cols = 32,
   rows = 22,
@@ -30,6 +33,8 @@ export default function PetLCD({
   crack = 0,
   event = null,
   onEventDone,
+  onActivity,
+  hasNews = false,
   compact = false,
   style,
 }) {
@@ -49,10 +54,12 @@ export default function PetLCD({
       tear: false,
       lastEventId: null,
       wobble: 0, // 蛋左右晃
+      act: null, // 正在自己玩的活動
+      lastAct: null,
     };
   }
   const propsRef = useRef({});
-  propsRef.current = { fullness, onEventDone, cols, rows, compact, stage };
+  propsRef.current = { fullness, onEventDone, onActivity, cols, rows, compact, stage, species, hasNews };
 
   // 新的動作進來
   useEffect(() => {
@@ -60,6 +67,10 @@ export default function PetLCD({
     if (!event || event.id === st.lastEventId) return;
     st.lastEventId = event.id;
     st.awakeUntil = st.tick + 25; // 吵醒牠十秒左右
+    if (st.act) {
+      st.act = null;
+      propsRef.current.onActivity?.(null);
+    }
     // 食物（8 格寬）放右邊還是左邊：右邊放得下就放右邊，不然放左邊，
     // 身體最左、最右那一欄本來就是空的，所以貼著放剛好有 1 格間距
     const right = st.x + 16 + 8 <= cols;
@@ -72,7 +83,7 @@ export default function PetLCD({
   useEffect(() => {
     const timer = setInterval(() => {
       const st = s.current;
-      const { fullness: f, onEventDone: done, cols: C, compact: small, stage: stg } = propsRef.current;
+      const { fullness: f, onEventDone: done, onActivity: onAct, cols: C, compact: small, stage: stg, species: spc, hasNews: news } = propsRef.current;
       const maxX = C - 16;
       st.tick += 1;
       st.blink = false;
@@ -80,7 +91,7 @@ export default function PetLCD({
 
       // 特效往上飄、時間到就消失
       st.fx = st.fx
-        .map((e) => ({ ...e, y: e.y + (e.vy || 0), ttl: e.ttl - 1 }))
+        .map((e) => ({ ...e, x: e.x + (e.vx || 0), y: e.y + (e.vy || 0), ttl: e.ttl - 1 }))
         .filter((e) => e.ttl > 0);
 
       const mood = moodOf(f);
@@ -135,10 +146,25 @@ export default function PetLCD({
         }
       } else if (stg !== "hatched") {
         if (chance(0.18)) st.wobble = chance(0.5) ? 1 : -1;
-      } else if (sleeping) {
-        if (st.tick % 3 === 0) st.fx.push({ sprite: FX.zSmall, x: Math.min(C - 3, st.x + 13), y: 0, vy: -1, ttl: 3, head: true });
-      } else if (mood === "starving") {
-        st.tear = st.tick % 4 < 2;
+      } else if (sleeping || mood === "starving") {
+        if (st.act) {
+          st.act = null;
+          onAct?.(null);
+        }
+        if (mood === "starving") st.tear = st.tick % 4 < 2;
+        else if (st.tick % 3 === 0) st.fx.push({ sprite: FX.zSmall, x: Math.min(C - 3, st.x + 13), y: 0, vy: -1, ttl: 3, head: true });
+      } else if (st.act) {
+        // 正在自己玩
+        if (!stepActivity(st.act, st, C, small)) {
+          st.lastAct = st.act.type;
+          st.act = null;
+          onAct?.(null);
+        }
+      } else if ((mood === "happy" || mood === "normal") && st.tick > 6 && chance(mood === "happy" ? 0.035 : 0.02)) {
+        // 心情不錯的時候，偶爾自己找事情做
+        const type = pickActivity(spc, small, st.lastAct);
+        st.act = startActivity(type, st, C);
+        onAct?.(type);
       } else {
         // 走來走去：餓的時候走得慢，開心的時候不太停
         const pause = mood === "hungry" ? 0.55 : mood === "happy" ? 0.12 : 0.25;
@@ -156,7 +182,13 @@ export default function PetLCD({
           const side = st.x + 16 + 9 <= C ? st.x + 16 : Math.max(0, st.x - 9);
           st.fx.push({ sprite: FX.thought, x: side, y: 7, ttl: 4, head: true }); // 跟頭頂齊高、在旁邊
         }
-        if (mood === "happy" && !small && chance(0.06)) {
+        // 有話想說：每隔一陣子在頭旁邊冒出「！」
+        if (news && !small && mood !== "hungry" && st.tick % 7 === 0 && !st.fx.some((e) => e.speech)) {
+          // 對話框 7 格寬，貼著身體外側（最外那欄本來就空著）放，才不會壓到刺或耳朵
+          const right = st.x + 16 + 7 <= C;
+          st.fx.push({ sprite: right ? PROPS.speechR : PROPS.speechL, x: right ? st.x + 16 : Math.max(0, st.x - 7), y: 6, ttl: 4, head: true, speech: true });
+        }
+        if (mood === "happy" && !small && chance(0.03)) {
           st.anim = { type: "pet", t: 0, event: null };
         }
       }
@@ -215,6 +247,15 @@ export default function PetLCD({
     eyes = "blink";
   }
 
+  // 正在自己玩：表情、跳躍、道具由活動決定
+  const act = !a && !sleeping && !lying && stage === "hatched" ? st.act : null;
+  const actView = act ? viewActivity(act, st, { rows }) : null;
+  if (actView) {
+    eyes = actView.eyes;
+    mouth = actView.mouth;
+    dy = actView.dy;
+  }
+
   const petY = groundTop + dy;
   const eggX = Math.floor((cols - 12) / 2);
   const eggY = rows - 14;
@@ -228,6 +269,9 @@ export default function PetLCD({
     const lx = Math.floor((cols - 16) / 2);
     sp.lying.pts.forEach(([x, y]) => pix.push([lx + x, rows - sp.lying.h + y]));
     if (st.tear) pix.push([lx + 4, rows - 3], [lx + 4, rows - 2]);
+  } else if (actView?.curled) {
+    // 刺蝟縮成一顆球在地上滾
+    sp.lying.pts.forEach(([x, y]) => pix.push([st.x + x, rows - sp.lying.h + y + dy]));
   } else if (hatching && a.t <= 2) {
     // 孵化前段：裂到底的蛋在劇烈搖晃
     [...sp.egg.pts, ...CRACKS[3]].forEach(([x, y]) => pix.push([eggX + st.wobble + x, eggY + y]));
@@ -245,6 +289,8 @@ export default function PetLCD({
       });
     }
   }
+
+  if (actView) pix.push(...actView.pix);
 
   // 吃東西時旁邊的食物，一口一口變小（從靠近寵物那一側開始少）
   if (a?.type === "eat" && a.event?.food && FOODS[a.event.food]) {

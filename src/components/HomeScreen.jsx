@@ -3,6 +3,7 @@ import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer, G
 import { currency, themeOf } from "../utils/format";
 import PetLCD from "./pet/PetLCD";
 import PixelHeart from "./pet/PixelHeart";
+import { hasUnreadPetMessage } from "./pet/petMessages";
 import { currentFullness, heartsOf, petStage, PET_SPECIES, PET_HUNGRY_BELOW } from "../../lib/petRules.js";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
@@ -212,7 +213,15 @@ export default function HomeScreen({
                 })}
               </div>
 
-              {pet && <PetStrip pet={pet} fullness={petFull} theme={theme} onOpen={() => onAction(kid.id, "pet")} />}
+              {pet && (
+                <PetStrip
+                  pet={pet}
+                  fullness={petFull}
+                  theme={theme}
+                  unread={!!today && hasUnreadPetMessage(kid.id, today)}
+                  onOpen={() => onAction(kid.id, "pet")}
+                />
+              )}
             </div>
           );
         })}
@@ -222,7 +231,7 @@ export default function HomeScreen({
 }
 
 // 卡片下面的寵物小螢幕：一眼看出牠餓不餓，點了進寵物頁
-function PetStrip({ pet, fullness, theme, onOpen }) {
+function PetStrip({ pet, fullness, theme, unread, onOpen }) {
   const { stage, species } = petStage(pet);
   const hatched = stage === "hatched";
   const hearts = heartsOf(fullness);
@@ -239,6 +248,8 @@ function PetStrip({ pet, fullness, theme, onOpen }) {
       ? "餓扁了！"
       : fullness < PET_HUNGRY_BELOW
       ? "肚子餓了！"
+      : unread
+      ? "有話想跟你說 💌"
       : sleeping
       ? "睡覺中 💤"
       : fullness > 90
@@ -276,7 +287,7 @@ function PetStrip({ pet, fullness, theme, onOpen }) {
           </div>
         )}
         {status && (
-          <div style={{ fontSize: 11, fontWeight: 800, marginTop: 3, color: urgent ? "#E85D5D" : hatched ? "#94795F" : theme.accentDark }}>{status}</div>
+          <div style={{ fontSize: 11, fontWeight: 800, marginTop: 3, color: urgent ? "#E85D5D" : !hatched || (unread && status.includes("💌")) ? theme.accentDark : "#94795F" }}>{status}</div>
         )}
       </div>
       <ChevronRight size={16} color={theme.accentDark} style={{ opacity: 0.5, flexShrink: 0 }} />

@@ -168,6 +168,10 @@ export default function App() {
         kid={activeKid}
         pet={pets.find((p) => p.kid_id === activeKid.id) || null}
         today={today}
+        responsibilities={responsibilities.filter((r) => r.kid_id === activeKid.id)}
+        responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
+        challenges={challenges.filter((c) => c.kid_id === activeKid.id)}
+        allowanceRules={allowanceRules}
         onBack={goHome}
         refetch={refetch}
       />

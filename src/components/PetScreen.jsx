@@ -5,6 +5,8 @@ import { themeOf } from "../utils/format";
 import PetLCD, { LCD_BG } from "./pet/PetLCD";
 import PixelHeart from "./pet/PixelHeart";
 import PinPadModal from "./PinPadModal";
+import { ACTIVITY_LABELS } from "./pet/activities";
+import { composePetMessage, todayPetMessage, markPetMessageRead } from "./pet/petMessages";
 import { SPECIES, SPECIES_ORDER, petFace } from "./pet/sprites";
 import {
   PET_FOODS,
@@ -26,7 +28,17 @@ const isNight = () => {
 // 小寵物（電子雞）頁：用責任值星星買食物餵牠。
 // 每天第一次餵到全飽會送一個驚喜（從獎勵轉盤的獎品抽），一天一次。
 // 一開始先選一顆蛋（刺蝟／兔子／小團子），點蛋幫牠取暖，點滿就孵出來。
-export default function PetScreen({ kid, pet, today, onBack, refetch }) {
+export default function PetScreen({
+  kid,
+  pet,
+  today,
+  responsibilities = [],
+  responsibilityLogs = [],
+  challenges = [],
+  allowanceRules = [],
+  onBack,
+  refetch,
+}) {
   const theme = themeOf(kid.theme_id);
   const [now, setNow] = useState(Date.now());
   const [override, setOverride] = useState(null); // 剛餵完、資料還沒重新抓回來前先用這個
@@ -42,6 +54,39 @@ export default function PetScreen({ kid, pet, today, onBack, refetch }) {
   const [showResetPin, setShowResetPin] = useState(false);
   const { stage, species } = petStage(pet);
   const speciesInfo = PET_SPECIES[species] || PET_SPECIES.dango;
+  const [activity, setActivity] = useState(null); // 牠正在自己玩什麼
+  const [petMsg, setPetMsg] = useState(null); // 今天想說的話 { text, read }
+  const [showMsg, setShowMsg] = useState(false);
+
+  // 孵出來之後，每天有一句想跟小主人說的話
+  useEffect(() => {
+    if (stage !== "hatched" || !today) return;
+    setPetMsg(
+      todayPetMessage(kid.id, today, () =>
+        composePetMessage({
+          kid,
+          pet,
+          species,
+          today,
+          responsibilities,
+          logs: responsibilityLogs,
+          challenges,
+          allowanceRules: allowanceRules.filter((r) => r.kid_id === kid.id),
+        })
+      )
+    );
+    // 一天算一次就好，資料一直更新不用重算（todayPetMessage 也會擋）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, today, kid.id]);
+
+  const closeMsg = () => {
+    setShowMsg(false);
+    if (petMsg && !petMsg.read) {
+      markPetMessageRead(kid.id, today);
+      setPetMsg({ ...petMsg, read: true });
+    }
+    if (!busy) setEvent({ id: Date.now(), type: "pet" }); // 說完開心跳一下
+  };
 
   // 飽足度是一直在掉的，畫面每 30 秒重算一次
   useEffect(() => {
@@ -242,6 +287,8 @@ export default function PetScreen({ kid, pet, today, onBack, refetch }) {
                 crack={crackOf(taps)}
                 event={event}
                 onEventDone={onEventDone}
+                onActivity={setActivity}
+                hasNews={stage === "hatched" && !!petMsg && !petMsg.read}
               />
             </div>
           </div>
@@ -318,12 +365,37 @@ export default function PetScreen({ kid, pet, today, onBack, refetch }) {
           </div>
         )}
         <div style={{ marginTop: 16, fontWeight: 800, color: "#5A4632", fontSize: 15 }}>
-          {statusLine()} <span style={{ color: "#B4A392", fontWeight: 700, fontSize: 13 }}>（飽足度 {Math.round(fullness)}%）</span>
+          {activity && !busy ? `${petName}${ACTIVITY_LABELS[activity] || ""}` : statusLine()} <span style={{ color: "#B4A392", fontWeight: 700, fontSize: 13 }}>（飽足度 {Math.round(fullness)}%）</span>
         </div>
         {isNight() && !busy && (
           <div style={{ marginTop: 4, fontSize: 12.5, color: "#94795F" }}>💤 晚上 9 點到早上 7 點牠在睡覺，餵牠會醒來吃</div>
         )}
         {msg && <div style={{ marginTop: 8, color: "#E85D5D", fontWeight: 700, fontSize: 13.5 }}>{msg}</div>}
+
+        {petMsg && (
+          <button
+            onClick={() => setShowMsg(true)}
+            style={{
+              marginTop: 14,
+              width: "100%",
+              maxWidth: 340,
+              boxSizing: "border-box",
+              border: petMsg.read ? "none" : `2px solid ${theme.accent}`,
+              background: petMsg.read ? "#fff" : theme.bg,
+              borderRadius: 14,
+              padding: "11px 14px",
+              textAlign: "left",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <span style={{ fontSize: 22 }}>{petMsg.read ? "💬" : "💌"}</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: petMsg.read ? "#8A7457" : theme.accentDark, lineHeight: 1.6 }}>
+              {petMsg.read ? `今天${petName}說：「${petMsg.text}」` : `${petName}有話想跟你說！點我看看`}
+            </span>
+          </button>
+        )}
 
         <div
           style={{
@@ -348,6 +420,7 @@ export default function PetScreen({ kid, pet, today, onBack, refetch }) {
           · 用今日責任賺到的 ⭐ 買食物餵牠，餵飽之後大約一天會肚子餓
           <br />· 每天第一次餵到全飽，會從獎勵轉盤的獎品裡送你一個驚喜
           <br />· 點螢幕可以摸摸牠；餓扁了也不會不見，餵牠就會好起來
+          <br />· 心情好的時候牠會自己玩球、散步、跳舞；每天也會有一句話想跟你說
         </div>
 
         <button
@@ -359,6 +432,10 @@ export default function PetScreen({ kid, pet, today, onBack, refetch }) {
         </>
         )}
       </div>
+      )}
+
+      {showMsg && petMsg && (
+        <PetMessageCard text={petMsg.text} petName={petName} species={species || "dango"} theme={theme} onClose={closeMsg} />
       )}
 
       {showResetPin && (
@@ -429,6 +506,51 @@ function EggPicker({ theme, busy, msg, onPick }) {
         })}
       </div>
       {msg && <div style={{ marginTop: 12, color: "#E85D5D", fontWeight: 700, fontSize: 13.5 }}>{msg}</div>}
+    </div>
+  );
+}
+
+// 寵物今天想說的話：左邊牠開心的臉、右邊對話框
+function PetMessageCard({ text, petName, species, theme, onClose }) {
+  const art = SPECIES[species] || SPECIES.dango;
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(60,45,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 22 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: 340, background: "#fff", borderRadius: 22, padding: "20px 18px 18px", animation: "toastIn .25s ease-out" }}
+      >
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: "#B4A392", textAlign: "center", marginBottom: 12 }}>💌 {petName}想跟你說</div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
+          <div style={{ background: LCD_BG, borderRadius: 12, padding: 7, flexShrink: 0 }}>
+            <Sprite pts={[...art.body.pts, ...petFace(art, "happy", "smile")]} w={16} h={16} size={56} />
+          </div>
+          <div
+            style={{
+              position: "relative",
+              flex: 1,
+              background: theme.bg,
+              border: `2px solid ${theme.accent}`,
+              borderRadius: "16px 16px 16px 4px",
+              padding: "12px 14px",
+              fontSize: 15.5,
+              fontWeight: 700,
+              color: "#5A4632",
+              lineHeight: 1.65,
+            }}
+          >
+            {text}
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          style={{ width: "100%", marginTop: 16, border: "none", borderRadius: 14, padding: 13, background: theme.accentDark, color: "#fff", fontWeight: 800, fontSize: 15 }}
+        >
+          我知道了！謝謝{petName}
+        </button>
+      </div>
     </div>
   );
 }
