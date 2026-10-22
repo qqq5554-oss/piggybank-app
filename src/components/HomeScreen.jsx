@@ -272,8 +272,9 @@ function PetStrip({ pet, fullness, theme, unread, onOpen }) {
         textAlign: "left",
       }}
     >
-      <div style={{ width: 132, flexShrink: 0, borderRadius: 8, overflow: "hidden", border: "3px solid #4B3F33" }}>
-        <PetLCD cols={44} rows={17} fullness={fullness} species={species || "dango"} stage={stage} compact />
+      {/* 跟寵物頁一樣高（26 格），頭上的音符、蝴蝶、泡泡、對話框都放得下 */}
+      <div style={{ width: 156, flexShrink: 0, borderRadius: 8, overflow: "hidden", border: "3px solid #4B3F33" }}>
+        <PetLCD cols={46} rows={26} fullness={fullness} species={species || "dango"} stage={stage} hasNews={hatched && unread} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 13.5, color: "#5A4632", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
