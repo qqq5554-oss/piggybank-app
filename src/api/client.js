@@ -147,6 +147,10 @@ export const deleteWheelOption = (optionId) => post("delete_wheel_option", { opt
 export const reorderWheelOptions = (ids) => post("reorder_wheel_options", { ids });
 
 // ------- 每日獎勵轉盤 -------
+// 小寵物：用責任值星星買食物餵牠
+export const feedPet = (kidId, foodId) => post("feed_pet", { kidId, foodId });
+export const renamePet = (kidId, name) => post("rename_pet", { kidId, name });
+
 export const spinRewardWheel = (kidId) => post("spin_reward_wheel", { kidId });
 // 家長加碼：要家長密碼，不用完成今日責任、也不佔掉當天那一次
 export const spinRewardWheelBonus = (kidId, parentPin) => post("spin_reward_wheel_bonus", { kidId }, parentPin);

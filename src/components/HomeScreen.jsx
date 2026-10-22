@@ -1,6 +1,9 @@
 import React from "react";
 import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer, Gift, Ticket, Wallet, ChevronRight } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
+import PetLCD from "./pet/PetLCD";
+import PixelHeart from "./pet/PixelHeart";
+import { currentFullness, heartsOf } from "../../lib/petRules.js";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
 const ACTIONS = [
@@ -28,6 +31,7 @@ export default function HomeScreen({
   onWheel,
   onTimer,
   timerLabel = null,
+  pets = [],
 }) {
   return (
     <div style={{ padding: "20px 18px 40px", minHeight: "100vh", boxSizing: "border-box" }}>
@@ -100,6 +104,8 @@ export default function HomeScreen({
           const unusedCoupons = coupons.filter((c) => c.kid_id === kid.id && c.status === "unused").length;
           const spunToday = rewardSpins.some((s) => s.kid_id === kid.id);
           const allDone = kidResponsibilities.length > 0 && doneCount === kidResponsibilities.length;
+          const pet = pets.find((p) => p.kid_id === kid.id);
+          const petFull = pet ? currentFullness(pet.fullness, pet.fullness_at) : null;
 
           const badgeFor = (actionId) => {
             if (actionId === "today" && kidResponsibilities.length > 0) {
@@ -205,10 +211,56 @@ export default function HomeScreen({
                   );
                 })}
               </div>
+
+              {pet && <PetStrip pet={pet} fullness={petFull} theme={theme} onOpen={() => onAction(kid.id, "pet")} />}
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+// 卡片下面的寵物小螢幕：一眼看出牠餓不餓，點了進寵物頁
+function PetStrip({ pet, fullness, theme, onOpen }) {
+  const hearts = heartsOf(fullness);
+  const h = new Date().getHours();
+  const sleeping = h >= 21 || h < 7;
+  const status = fullness <= 0 ? "餓扁了！" : fullness < 30 ? "肚子餓了！" : sleeping ? "睡覺中 💤" : fullness > 90 ? "吃飽飽" : "";
+  const urgent = fullness < 30;
+  return (
+    <button
+      onClick={onOpen}
+      style={{
+        width: "calc(100% - 24px)",
+        margin: "0 12px 14px",
+        border: "none",
+        borderRadius: 14,
+        background: "#fff",
+        padding: 7,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        textAlign: "left",
+      }}
+    >
+      <div style={{ width: 132, flexShrink: 0, borderRadius: 8, overflow: "hidden", border: "3px solid #4B3F33" }}>
+        <PetLCD cols={44} rows={17} fullness={fullness} compact />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 800, fontSize: 13.5, color: "#5A4632", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {pet.name || "小團子"}
+        </div>
+        <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <PixelHeart key={i} full={i < hearts} size={13} color={theme.accentDark} />
+          ))}
+        </div>
+        {status && (
+          <div style={{ fontSize: 11, fontWeight: 800, marginTop: 3, color: urgent ? "#E85D5D" : "#94795F" }}>{status}</div>
+        )}
+      </div>
+      <ChevronRight size={16} color={theme.accentDark} style={{ opacity: 0.5, flexShrink: 0 }} />
+    </button>
   );
 }

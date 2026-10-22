@@ -6,6 +6,7 @@ import { registerServiceWorker } from "./utils/push";
 import HomeScreen from "./components/HomeScreen";
 import KidDetailScreen from "./components/KidDetailScreen";
 import WeeklyReportScreen from "./components/WeeklyReportScreen";
+import PetScreen from "./components/PetScreen";
 import ParentDashboard from "./components/ParentDashboard";
 import SiteAccessScreen from "./components/SiteAccessScreen";
 import QuickRecordScreen from "./components/QuickRecordScreen";
@@ -56,6 +57,7 @@ export default function App() {
     weekMoney,
     weekPoints,
     weekStart,
+    pets,
     vapidPublicKey,
     today,
     loading,
@@ -97,6 +99,7 @@ export default function App() {
     if (actionId === "rewardWheel") return setScreen("rewardWheel");
     if (actionId === "coupons") return setScreen("coupons");
     if (actionId === "account") return setScreen("kidDetail");
+    if (actionId === "pet") return setScreen("pet");
     setQuickTab(actionId === "points" ? "points" : actionId); // expense / income / points
     setScreen("quickRecord");
   };
@@ -119,6 +122,7 @@ export default function App() {
       onWheel={() => setScreen("wheel")}
       onTimer={() => setScreen("timer")}
       timerLabel={timer.running ? formatRemaining(timer.remainingMs) : null}
+      pets={pets}
     />
   );
 
@@ -155,6 +159,16 @@ export default function App() {
         initialKidId={activeKidId}
         initialTab={quickTab}
         onClose={goHome}
+        refetch={refetch}
+      />
+    );
+  } else if (screen === "pet" && activeKid) {
+    subScreen = (
+      <PetScreen
+        kid={activeKid}
+        pet={pets.find((p) => p.kid_id === activeKid.id) || null}
+        today={today}
+        onBack={goHome}
         refetch={refetch}
       />
     );

@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { pickWeightedIndex } from "../lib/weightedPick.js";
+import { PET_FOODS, PET_DECAY_PER_HOUR, PET_TOO_FULL, PET_RANDOM_GIFT_CHANCE, currentFullness } from "../lib/petRules.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
@@ -215,6 +216,8 @@ export default async function handler(req, res) {
           insert into kids (name, avatar, theme_id, balance, sort_order)
           values (${name}, ${avatar}, ${themeId}, 0, coalesce((select max(sort_order) + 1 from kids), 1))
         `;
+        // 新的小孩也發一隻寵物（寵物的 SQL 還沒跑的話就先略過，不影響新增小孩）
+        await sql`insert into pets (kid_id) select id from kids on conflict (kid_id) do nothing`.catch(() => {});
         break;
       }
       case "reorder_kids": {
@@ -508,6 +511,106 @@ export default async function handler(req, res) {
 
         return res.status(200).json({ ok: true, optionId: win.id, label: win.label, emoji: win.emoji || "", coupon: issueCoupon });
       }
+      // ------- 小寵物 -------
+      case "feed_pet": {
+        const { kidId, foodId } = payload;
+        const food = PET_FOODS.find((f) => f.id === foodId);
+        if (!food) return res.status(400).json({ error: "沒有這種食物" });
+
+        await sql`insert into pets (kid_id) values (${kidId}) on conflict (kid_id) do nothing`;
+
+        // 一句 SQL 做完「確認吃得下 → 扣星星 → 記一筆 → 加飽足度」，
+        // 中間任何一步不成立就全部不做，不會發生扣了星星卻沒餵到。
+        // 飽足度直接用那一列當下的值算，連按兩下也會正確疊加。
+        const decay = PET_DECAY_PER_HOUR;
+        const rows = await sql`
+          with cur as (
+            select greatest(0, least(100, fullness - ${decay}::numeric * extract(epoch from (now() - fullness_at))::numeric / 3600)) as f
+            from pets where kid_id = ${kidId}
+          ), k as (
+            update kids set character_points = character_points - ${food.cost}
+            where id = ${kidId}
+              and character_points >= ${food.cost}
+              and exists (select 1 from cur where f <= ${PET_TOO_FULL})
+            returning id
+          ), lg as (
+            insert into character_point_logs (kid_id, delta, reason)
+            select ${kidId}::uuid, ${-food.cost}::numeric, ${"餵寵物：" + food.name}::text from k
+          )
+          update pets set
+            fullness = least(100, greatest(0, least(100, fullness - ${decay}::numeric * extract(epoch from (now() - fullness_at))::numeric / 3600)) + ${food.fill}::numeric),
+            fullness_at = now(),
+            total_fed = total_fed + 1
+          where kid_id = ${kidId} and exists (select 1 from k)
+          returning fullness
+        `;
+
+        if (!rows[0]) {
+          // 沒餵成功，查一下是哪個原因，給看得懂的訊息
+          const pet = await sql`select fullness, fullness_at from pets where kid_id = ${kidId}`;
+          const f = pet[0] ? currentFullness(pet[0].fullness, pet[0].fullness_at) : 0;
+          if (f > PET_TOO_FULL) return res.status(400).json({ error: "牠現在很飽，吃不下了" });
+          return res.status(400).json({ error: `責任值星星不夠（${food.name}要 ${food.cost} 顆）` });
+        }
+
+        const fullness = Number(rows[0].fullness);
+        let gift = null;
+
+        // 驚喜一：今天第一次餵到全飽，從獎勵轉盤的獎品裡抽一個送給小主人。
+        // 先用一句有條件的 update「搶」今天的名額，同時按兩下也只會送一次。
+        if (fullness >= 100) {
+          const claimed = await sql`
+            update pets set last_gift_date = current_date
+            where kid_id = ${kidId} and (last_gift_date is null or last_gift_date < current_date)
+            returning id
+          `;
+          if (claimed[0]) {
+            const win = await drawRewardOption();
+            if (win) {
+              const { queries, issueCoupon } = prizeQueries(kidId, win, { source: "pet", reasonPrefix: "寵物驚喜：" });
+              await sql.transaction([...queries, sql`update pets set last_gift_label = ${win.label} where kid_id = ${kidId}`]);
+              gift = {
+                kind: "daily",
+                label: win.label,
+                emoji: win.emoji || "🎁",
+                coupon: issueCoupon,
+                points: Number(win.reward_points) || 0,
+                money: Number(win.reward_money) || 0,
+              };
+            } else {
+              // 獎勵轉盤還沒設定獎品的話，就送星星
+              await sql.transaction([
+                sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, 2, '寵物驚喜：送你 2 顆星星')`,
+                sql`update kids set character_points = character_points + 2 where id = ${kidId}`,
+                sql`update pets set last_gift_label = '2 顆星星' where kid_id = ${kidId}`,
+              ]);
+              gift = { kind: "daily", label: "送你 2 顆星星", emoji: "⭐", coupon: false, points: 2, money: 0 };
+            }
+          }
+        }
+
+        // 驚喜二：每次餵食都有一點點機率撿到星星
+        if (!gift && Math.random() < PET_RANDOM_GIFT_CHANCE) {
+          const n = 1 + Math.floor(Math.random() * 2);
+          await sql.transaction([
+            sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, ${n}, ${`寵物驚喜：撿到 ${n} 顆星星`})`,
+            sql`update kids set character_points = character_points + ${n} where id = ${kidId}`,
+          ]);
+          gift = { kind: "random", label: `撿到 ${n} 顆星星`, emoji: "⭐", coupon: false, points: n, money: 0 };
+        }
+
+        return res.status(200).json({ ok: true, fullness, gift });
+      }
+      case "rename_pet": {
+        const name = String(payload.name || "").trim().slice(0, 10);
+        if (!name) return res.status(400).json({ error: "名字不能空白" });
+        await sql`
+          insert into pets (kid_id, name) values (${payload.kidId}, ${name})
+          on conflict (kid_id) do update set name = excluded.name
+        `;
+        break;
+      }
+
       case "use_coupon": {
         const rows = await sql`
           update coupons set status = 'used', used_at = now()

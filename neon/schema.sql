@@ -405,3 +405,27 @@ with ordered as (
 update kids set sort_order = ordered.rn
 from ordered
 where kids.id = ordered.id and kids.sort_order = 0;
+
+-- ============================================================
+-- Phase 14 追加（小寵物：用責任值星星餵的電子雞）
+-- ⚠️ 可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 每個小孩一隻。飽足度不需要排程去扣：只存「某個時間點的飽足度」，
+-- 現在的值 = 存的值 − 經過的時間 × 每小時下降量（規則在 lib/petRules.js）
+create table if not exists pets (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null unique references kids(id) on delete cascade,
+  name text not null default '小團子',
+  fullness numeric not null default 60,
+  fullness_at timestamptz not null default now(),
+  last_gift_date date,          -- 哪一天已經送過「餵飽驚喜」（一天一次）
+  last_gift_label text,
+  total_fed integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- 現有的小孩都先發一隻
+insert into pets (kid_id)
+select id from kids
+on conflict (kid_id) do nothing;

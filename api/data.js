@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "網站密碼錯誤" });
     }
 
-    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, wheelPresets, rewardWheelOptions, rewardSpins, coupons, weekMoney, weekPoints, todayRows] = await Promise.all([
+    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, wheelPresets, rewardWheelOptions, rewardSpins, coupons, weekMoney, weekPoints, todayRows, pets] = await Promise.all([
       sql`select * from kids order by sort_order, created_at, id`,
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
@@ -49,6 +49,9 @@ export default async function handler(req, res) {
         group by kid_id
       `,
       sql`select to_char(current_date, 'YYYY-MM-DD') as today, to_char(date_trunc('week', current_date), 'YYYY-MM-DD') as week_start`,
+      // 小寵物。新功能的表如果 SQL 還沒跑，這裡回空陣列就好，
+      // 不要讓整個首頁跟著讀取失敗（之前發生過一次整頁空白）
+      sql`select kid_id, name, fullness, fullness_at, to_char(last_gift_date, 'YYYY-MM-DD') as last_gift_date, last_gift_label, total_fed from pets`.catch(() => []),
     ]);
     // 「今天」以資料庫伺服器的 current_date 為準，不要用瀏覽器自己算的日期，
     // 避免裝置時區跟資料庫時區對不起來，導致今天打的卡永遠比對不到。
@@ -77,6 +80,7 @@ export default async function handler(req, res) {
       weekPoints,
       today,
       weekStart,
+      pets,
       // 推播用的公開金鑰，前端訂閱推播時要用（公開金鑰本來就可以給瀏覽器看）
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
     });

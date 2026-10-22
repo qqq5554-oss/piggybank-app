@@ -28,6 +28,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
   const [weekMoney, setWeekMoney] = useState([]);
   const [weekPoints, setWeekPoints] = useState([]);
   const [weekStart, setWeekStart] = useState(null);
+  const [pets, setPets] = useState([]);
   const [vapidPublicKey, setVapidPublicKey] = useState(null);
   const [today, setToday] = useState(null); // 資料庫伺服器認定的「今天」，不是瀏覽器自己算的
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
       setWeekMoney(data.weekMoney || []);
       setWeekPoints(data.weekPoints || []);
       setWeekStart(data.weekStart || null);
+      setPets(data.pets || []);
       setVapidPublicKey(data.vapidPublicKey);
       setToday(data.today);
     } catch (err) {
@@ -97,6 +99,7 @@ export function useKidsData(enabled = true, onUnauthorized) {
     weekMoney,
     weekPoints,
     weekStart,
+    pets,
     vapidPublicKey,
     today,
     loading,
