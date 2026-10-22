@@ -7,7 +7,8 @@ import PixelHeart from "./pet/PixelHeart";
 import PinPadModal from "./PinPadModal";
 import { ACTIVITY_LABELS } from "./pet/activities";
 import { composePetMessage, todayPetMessage, markPetMessageRead } from "./pet/petMessages";
-import { SPECIES, SPECIES_ORDER, petFace } from "./pet/sprites";
+import { SPECIES, SPECIES_ORDER } from "./pet/sprites";
+import { petArt } from "./pet/petArt";
 import {
   PET_FOODS,
   PET_TOO_FULL,
@@ -279,8 +280,8 @@ export default function PetScreen({
           >
             <div style={{ borderRadius: 9, overflow: "hidden" }}>
               <PetLCD
-                cols={32}
-                rows={26}
+                cols={40}
+                rows={33}
                 fullness={fullness}
                 species={species || "dango"}
                 stage={stage}
@@ -473,7 +474,8 @@ function EggPicker({ theme, busy, msg, onPick }) {
         {SPECIES_ORDER.map((key) => {
           const art = SPECIES[key];
           const info = PET_SPECIES[key];
-          const face = petFace(art, "open", "smile");
+          const look = petArt(key);
+          const face = look.face("open", "small");
           return (
             <button
               key={key}
@@ -499,7 +501,7 @@ function EggPicker({ theme, busy, msg, onPick }) {
                 <div style={{ fontSize: 12, color: "#94795F", marginTop: 3, lineHeight: 1.6 }}>{info.blurb}</div>
               </div>
               <div style={{ background: LCD_BG, borderRadius: 10, padding: 6, flexShrink: 0, opacity: 0.85 }}>
-                <Sprite pts={[...art.body.pts, ...face]} w={16} h={16} size={34} />
+                <Sprite pts={[...look.body, ...face]} w={look.w} h={look.h} size={36} />
               </div>
             </button>
           );
@@ -512,7 +514,7 @@ function EggPicker({ theme, busy, msg, onPick }) {
 
 // 寵物今天想說的話：左邊牠開心的臉、右邊對話框
 function PetMessageCard({ text, petName, species, theme, onClose }) {
-  const art = SPECIES[species] || SPECIES.dango;
+  const look = petArt(species);
   return (
     <div
       onClick={onClose}
@@ -525,7 +527,7 @@ function PetMessageCard({ text, petName, species, theme, onClose }) {
         <div style={{ fontSize: 12.5, fontWeight: 800, color: "#B4A392", textAlign: "center", marginBottom: 12 }}>💌 {petName}想跟你說</div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
           <div style={{ background: LCD_BG, borderRadius: 12, padding: 7, flexShrink: 0 }}>
-            <Sprite pts={[...art.body.pts, ...petFace(art, "happy", "smile")]} w={16} h={16} size={56} />
+            <Sprite pts={[...look.body, ...look.face("cute", "smile")]} w={look.w} h={look.h} size={60} />
           </div>
           <div
             style={{
