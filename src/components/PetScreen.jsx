@@ -11,6 +11,7 @@ import {
   PET_TOO_FULL,
   PET_SPECIES,
   PET_HATCH_TAPS,
+  PET_HUNGRY_BELOW,
   currentFullness,
   heartsOf,
   petStage,
@@ -158,7 +159,7 @@ export default function PetScreen({ kid, pet, today, onBack, refetch }) {
 
   const statusLine = () => {
     if (fullness <= 0) return "餓扁了！快餵牠吃東西";
-    if (fullness < 30) return "肚子好餓⋯⋯";
+    if (fullness < PET_HUNGRY_BELOW) return "肚子好餓⋯⋯";
     if (fullness < 70) return "有一點點餓";
     if (tooFull) return "吃得飽飽的，現在吃不下了";
     return "心情很好";
@@ -344,7 +345,7 @@ export default function PetScreen({ kid, pet, today, onBack, refetch }) {
         </div>
 
         <div style={{ marginTop: 18, width: "100%", maxWidth: 340, fontSize: 12, color: "#B4A392", lineHeight: 1.9 }}>
-          · 用今日責任賺到的 ⭐ 買食物餵牠，大約兩天會從全飽變成肚子扁扁
+          · 用今日責任賺到的 ⭐ 買食物餵牠，餵飽之後大約一天會肚子餓
           <br />· 每天第一次餵到全飽，會從獎勵轉盤的獎品裡送你一個驚喜
           <br />· 點螢幕可以摸摸牠；餓扁了也不會不見，餵牠就會好起來
         </div>

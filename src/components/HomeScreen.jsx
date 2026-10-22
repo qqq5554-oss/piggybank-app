@@ -3,7 +3,7 @@ import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer, G
 import { currency, themeOf } from "../utils/format";
 import PetLCD from "./pet/PetLCD";
 import PixelHeart from "./pet/PixelHeart";
-import { currentFullness, heartsOf, petStage, PET_SPECIES } from "../../lib/petRules.js";
+import { currentFullness, heartsOf, petStage, PET_SPECIES, PET_HUNGRY_BELOW } from "../../lib/petRules.js";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
 const ACTIONS = [
@@ -237,14 +237,14 @@ function PetStrip({ pet, fullness, theme, onOpen }) {
       ? "點進來幫牠孵化 🥚"
       : fullness <= 0
       ? "餓扁了！"
-      : fullness < 30
+      : fullness < PET_HUNGRY_BELOW
       ? "肚子餓了！"
       : sleeping
       ? "睡覺中 💤"
       : fullness > 90
       ? "吃飽飽"
       : "";
-  const urgent = hatched && fullness < 30;
+  const urgent = hatched && fullness < PET_HUNGRY_BELOW;
   return (
     <button
       onClick={onOpen}
