@@ -58,6 +58,7 @@ export default function App() {
     weekPoints,
     weekStart,
     pets,
+    features,
     vapidPublicKey,
     today,
     loading,
@@ -123,6 +124,7 @@ export default function App() {
       onTimer={() => setScreen("timer")}
       timerLabel={timer.running ? formatRemaining(timer.remainingMs) : null}
       pets={pets}
+      features={features}
     />
   );
 
@@ -135,7 +137,7 @@ export default function App() {
         responsibilityLogs={responsibilityLogs.filter((l) => l.kid_id === activeKid.id)}
         rewardItems={rewardItems}
         todaySpin={rewardSpins.find((s) => s.kid_id === activeKid.id) || null}
-        hasWheelOptions={rewardWheelOptions.length > 0}
+        hasWheelOptions={features.rewardWheel && rewardWheelOptions.length > 0}
         today={today}
         onBack={goHome}
         onGoWheel={() => setScreen("rewardWheel")}
@@ -246,6 +248,7 @@ export default function App() {
         expenseRules={expenseRules}
         rewardItems={rewardItems}
         rewardWheelOptions={rewardWheelOptions}
+        features={features}
         vapidPublicKey={vapidPublicKey}
         pin={null}
         onBack={goHome}

@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "網站密碼錯誤" });
     }
 
-    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, wheelPresets, rewardWheelOptions, rewardSpins, coupons, weekMoney, weekPoints, todayRows, pets] = await Promise.all([
+    const [kids, chores, pendingChores, responsibilities, responsibilityLogs, missions, allowanceRules, expenseRules, rewardItems, challenges, wheelOptions, wheelPresets, rewardWheelOptions, rewardSpins, coupons, weekMoney, weekPoints, todayRows, pets, featureRows] = await Promise.all([
       sql`select * from kids order by sort_order, created_at, id`,
       sql`select * from chores order by created_at`,
       sql`select * from pending_chores order by created_at`,
@@ -53,6 +53,8 @@ export default async function handler(req, res) {
       // 不要讓整個首頁跟著讀取失敗（之前發生過一次整頁空白）
       // 用 select *：之後加的欄位（species、hatched_at）還沒建的時候也照樣能讀
       sql`select *, to_char(last_gift_date, 'YYYY-MM-DD') as last_gift_day from pets`.catch(() => []),
+      // 功能開關：只挑 feature_ 開頭的，app_settings 裡的密碼不能送到前端
+      sql`select key, value from app_settings where key like 'feature_%'`,
     ]);
     // 「今天」以資料庫伺服器的 current_date 為準，不要用瀏覽器自己算的日期，
     // 避免裝置時區跟資料庫時區對不起來，導致今天打的卡永遠比對不到。
@@ -83,6 +85,11 @@ export default async function handler(req, res) {
       weekStart,
       // last_gift_date 是 date 型別，轉成純文字 YYYY-MM-DD 才不會被時區弄錯一天
       pets: pets.map(({ last_gift_day, ...p }) => ({ ...p, last_gift_date: last_gift_day })),
+      // 沒設定過就是開著
+      features: {
+        spinWheel: featureRows.find((r) => r.key === "feature_spin_wheel")?.value !== "off",
+        rewardWheel: featureRows.find((r) => r.key === "feature_reward_wheel")?.value !== "off",
+      },
       // 推播用的公開金鑰，前端訂閱推播時要用（公開金鑰本來就可以給瀏覽器看）
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null,
     });

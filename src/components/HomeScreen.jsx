@@ -33,7 +33,10 @@ export default function HomeScreen({
   onTimer,
   timerLabel = null,
   pets = [],
+  features = { spinWheel: true, rewardWheel: true },
 }) {
+  // 設定裡關掉的功能就不顯示
+  const actions = ACTIONS.filter((a) => a.id !== "rewardWheel" || features.rewardWheel);
   return (
     <div style={{ padding: "20px 18px 40px", minHeight: "100vh", boxSizing: "border-box" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
@@ -42,24 +45,26 @@ export default function HomeScreen({
           <div style={{ color: "#B4A392", fontSize: 12.5, marginTop: 2 }}>小小存錢筒</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button
-            onClick={onWheel}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              height: 38,
-              padding: "0 13px",
-              borderRadius: 12,
-              border: "none",
-              background: "#FFEDE1",
-              color: "#E86A3A",
-              fontWeight: 800,
-              fontSize: 13,
-            }}
-          >
-            <Disc3 size={16} color="#E86A3A" /> 小轉盤
-          </button>
+          {features.spinWheel && (
+            <button
+              onClick={onWheel}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                height: 38,
+                padding: "0 13px",
+                borderRadius: 12,
+                border: "none",
+                background: "#FFEDE1",
+                color: "#E86A3A",
+                fontWeight: 800,
+                fontSize: 13,
+              }}
+            >
+              <Disc3 size={16} color="#E86A3A" /> 小轉盤
+            </button>
+          )}
           <button
             onClick={onTimer}
             style={{
@@ -171,7 +176,7 @@ export default function HomeScreen({
                   padding: "0 12px 14px",
                 }}
               >
-                {ACTIONS.map(({ id, label, Icon }) => {
+                {actions.map(({ id, label, Icon }) => {
                   const badge = badgeFor(id);
                   return (
                     <button

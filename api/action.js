@@ -260,6 +260,18 @@ export default async function handler(req, res) {
         await sql`update app_settings set value = ${newPin} where key = 'parent_pin'`;
         break;
       }
+      case "set_feature": {
+        // 功能開關（顯示／隱藏）。只接受這幾個，不能拿來改密碼之類的設定
+        const FEATURES = { spinWheel: "feature_spin_wheel", rewardWheel: "feature_reward_wheel" };
+        const key = Object.hasOwn(FEATURES, payload.feature) ? FEATURES[payload.feature] : null;
+        if (!key) return res.status(400).json({ error: "沒有這個功能" });
+        const value = payload.on ? "on" : "off";
+        await sql`
+          insert into app_settings (key, value) values (${key}, ${value})
+          on conflict (key) do update set value = excluded.value
+        `;
+        break;
+      }
       case "change_site_pin": {
         const { newSitePin } = payload;
         await sql`update app_settings set value = ${newSitePin} where key = 'site_pin'`;

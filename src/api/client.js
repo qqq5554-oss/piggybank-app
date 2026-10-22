@@ -52,6 +52,8 @@ export async function verifySitePin(candidatePin) {
 }
 
 export const changeSitePin = (newSitePin, parentPin) => post("change_site_pin", { newSitePin }, parentPin);
+// 功能開關：feature 是 spinWheel（小轉盤）或 rewardWheel（獎勵轉盤）
+export const setFeature = (feature, on) => post("set_feature", { feature, on });
 
 export const requestChore = (kidId, chore) =>
   post("request_chore", { kidId, choreId: chore.id, choreName: chore.name, amount: chore.amount });

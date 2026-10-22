@@ -30,6 +30,7 @@ import {
   updateExpenseRule,
   changeSitePin,
   changePin,
+  setFeature,
   setSitePin,
   addRewardItem,
   deleteRewardItem,
@@ -53,6 +54,7 @@ export default function ParentDashboard({
   expenseRules,
   rewardItems,
   rewardWheelOptions = [],
+  features = { spinWheel: true, rewardWheel: true },
   vapidPublicKey,
   pin,
   onBack,
@@ -114,7 +116,7 @@ export default function ParentDashboard({
         {tab === "recurring" && (
           <RecurringManageTab kids={kids} allowanceRules={allowanceRules} expenseRules={expenseRules} pin={pin} refetch={refetch} />
         )}
-        {tab === "settings" && <SettingsTab pin={pin} vapidPublicKey={vapidPublicKey} />}
+        {tab === "settings" && <SettingsTab pin={pin} vapidPublicKey={vapidPublicKey} features={features} refetch={refetch} />}
       </div>
     </div>
   );
@@ -1512,7 +1514,7 @@ function RecurringManageTab({ kids, allowanceRules, expenseRules, pin, refetch }
 }
 
 // ---------------- 設定 ----------------
-function SettingsTab({ pin, vapidPublicKey }) {
+function SettingsTab({ pin, vapidPublicKey, features, refetch }) {
   const [sitePin1, setSitePin1] = useState("");
   const [sitePin2, setSitePin2] = useState("");
   const [siteMsg, setSiteMsg] = useState("");
@@ -1599,11 +1601,75 @@ function SettingsTab({ pin, vapidPublicKey }) {
     }
   };
 
+  // 功能開關：存在資料庫，所有手機一起生效
+  const [featureBusy, setFeatureBusy] = useState("");
+  const toggleFeature = async (key) => {
+    setFeatureBusy(key);
+    try {
+      await setFeature(key, !features[key]);
+      await refetch();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setFeatureBusy("");
+    }
+  };
+
   const supported = pushSupported();
   const needsInstall = isIOS() && !isStandalone();
 
   return (
     <div>
+      <label style={labelStyle}>👀 要顯示的功能</label>
+      <div style={{ fontSize: 12.5, color: "#B4A392", lineHeight: 1.7, marginBottom: 10 }}>
+        關掉只是把入口藏起來，設定好的選項都會留著，之後打開就恢復。所有手機一起生效。
+      </div>
+      {[
+        { key: "spinWheel", title: "🎡 小轉盤", desc: "總覽上方，用來決定事情" },
+        { key: "rewardWheel", title: "🎁 獎勵轉盤", desc: "小孩卡片的「轉盤」、今日責任做完後的轉盤" },
+      ].map((f) => {
+        const on = features[f.key];
+        const busy = featureBusy === f.key;
+        return (
+          <button
+            key={f.key}
+            onClick={() => toggleFeature(f.key)}
+            disabled={!!featureBusy}
+            role="switch"
+            aria-checked={on}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 12px",
+              marginBottom: 8,
+              borderRadius: 12,
+              border: "2px solid #F1E7DC",
+              background: "#fff",
+              textAlign: "left",
+              opacity: featureBusy && !busy ? 0.6 : 1,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#5A4632" }}>{f.title}</div>
+              <div style={{ fontSize: 11.5, color: "#B4A392", marginTop: 2 }}>{f.desc}</div>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 800, color: on ? "#3DB88A" : "#B4A392", minWidth: 36, textAlign: "right" }}>
+              {busy ? "…" : on ? "顯示" : "隱藏"}
+            </span>
+            <span style={{ width: 44, height: 26, borderRadius: 13, background: on ? "#3DB88A" : "#D9CFC4", position: "relative", flexShrink: 0, transition: "background .2s" }}>
+              <span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transition: "left .2s" }} />
+            </span>
+          </button>
+        );
+      })}
+      <div style={{ fontSize: 11.5, color: "#B4A392", lineHeight: 1.6 }}>
+        獎勵轉盤藏起來後，小寵物每天的禮物還是會從獎勵轉盤的選項裡抽。
+      </div>
+
+      <div style={{ height: 1, background: "#F1E7DC", margin: "20px 0" }} />
+
       <label style={labelStyle}>🔔 手機推播通知</label>
       <div style={{ fontSize: 12.5, color: "#B4A392", lineHeight: 1.7, marginBottom: 10 }}>
         開啟後，發放零用錢、結算利息、傍晚還沒完成今日責任時，都會直接推播到這支手機。
