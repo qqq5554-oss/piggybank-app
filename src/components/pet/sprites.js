@@ -176,25 +176,40 @@ const RABBIT_LYING = parse([
   "..############..",
 ]);
 
-// 刺蝟：頭頂一整片刺，臉露在下面
+// 刺蝟：圓圓的臉、頭上一圈刺（兩側有缺口看起來才像一根一根的刺），
+// 大眼睛＋小鼻子，平常不畫嘴巴，鼻子就是牠的小嘴
 const HEDGEHOG_BODY = parse([
-  "...#..#..#..#...",
-  "..##.##..##.##..",
+  "...#...##...#...",
+  "..###.####.###..",
   ".##############.",
-  "################",
-  "###..........###",
+  "######....######",
+  "####........####",
+  ".##..........##.",
   "##............##",
+  ".#............#.",
   "##............##",
-  "#..............#",
-  "#..............#",
-  "#..............#",
-  "#..............#",
   ".#............#.",
   ".#............#.",
-  "..##........##..",
-  "....########....",
+  "..#..........#..",
+  "..#..........#..",
+  "...##......##...",
+  ".....######.....",
   "....##....##....",
 ]);
+// 刺蝟專用的臉：座標跟共用的一樣是「位移前」，畫的時候會再往下 1 格
+const HEDGEHOG_EYES = {
+  open: [[4, 8], [5, 8], [4, 9], [5, 9], [10, 8], [11, 8], [10, 9], [11, 9]], // 大眼睛
+};
+const HEDGEHOG_MOUTHS = {
+  smile: [], // 只有鼻子
+  neutral: [],
+  open: [[7, 10], [8, 10], [7, 11], [8, 11]], // 小小的 o，才不會碰到下巴
+  chomp: [[7, 11], [8, 11]],
+  sad: [[7, 10], [8, 10], [6, 11], [9, 11]], // 鼻子兩邊往下垂
+};
+const HEDGEHOG_NOSE = [[7, 10], [8, 10]];
+const HEDGEHOG_TEAR = [[4, 10], [4, 11]]; // 從大眼睛正下方流下來
+
 // 刺蝟餓扁：縮成一顆刺球（刺蝟難過的時候真的會捲起來）
 const HEDGEHOG_LYING = parse([
   "...#.#.#.#.#....",
@@ -247,7 +262,26 @@ export const MYSTERY_EGG = egg(["", "", "", "....###.....", "...#...#....", "...
 // 名字、介紹放在 lib/petRules.js 的 PET_SPECIES，這裡只放圖
 export const SPECIES = {
   dango: { body: BODY, face: [0, 0], lying: LYING, egg: EGGS.dango },
-  hedgehog: { body: HEDGEHOG_BODY, face: [0, 1], lying: HEDGEHOG_LYING, egg: EGGS.hedgehog },
+  hedgehog: {
+    body: HEDGEHOG_BODY,
+    face: [0, 1],
+    lying: HEDGEHOG_LYING,
+    egg: EGGS.hedgehog,
+    eyes: HEDGEHOG_EYES,
+    mouths: HEDGEHOG_MOUTHS,
+    nose: HEDGEHOG_NOSE,
+    tear: HEDGEHOG_TEAR,
+  },
   rabbit: { body: RABBIT_BODY, face: [0, 1], lying: RABBIT_LYING, egg: EGGS.rabbit },
 };
 export const SPECIES_ORDER = ["hedgehog", "rabbit", "dango"];
+
+// 組出某種寵物某個表情的臉：有專用的眼睛／嘴巴就用專用的，沒有就用共用的。
+// 鼻子只在笑或普通表情時出現（張嘴吃東西、難過時嘴巴已經包含鼻子了）。
+export function petFace(sp, eyes, mouth, withTear = false) {
+  const e = sp.eyes?.[eyes] || EYES[eyes] || [];
+  const m = sp.mouths && mouth in sp.mouths ? sp.mouths[mouth] : MOUTHS[mouth] || [];
+  const nose = sp.nose && (mouth === "smile" || mouth === "neutral") ? sp.nose : [];
+  const tear = withTear ? sp.tear || TEAR : [];
+  return [...e, ...m, ...nose, ...tear].map(([x, y]) => [x + sp.face[0], y + sp.face[1]]);
+}

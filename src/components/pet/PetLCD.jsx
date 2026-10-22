@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useReducer, useRef } from "react";
-import { EYES, MOUTHS, TEAR, FOODS, FX, SPECIES, MYSTERY_EGG, CRACKS } from "./sprites";
+import { FOODS, FX, SPECIES, MYSTERY_EGG, CRACKS, petFace } from "./sprites";
 import { moodOf } from "../../../lib/petRules.js";
 
 // 經典電子雞的單色液晶：淡綠底、深綠點，還有沒亮的格子淡淡的殘影
@@ -170,7 +170,6 @@ export default function PetLCD({
   const st = s.current;
   st.x = Math.max(0, Math.min(cols - 16, st.x)); // 螢幕寬度變了也不會跑出去
   const sp = SPECIES[species] || SPECIES.dango;
-  const atFace = (pts) => pts.map(([x, y]) => [x + sp.face[0], y + sp.face[1]]);
   const mood = moodOf(fullness);
   const sleeping = isNight() && st.tick > st.awakeUntil && !st.anim;
   const groundTop = rows - 16;
@@ -234,8 +233,8 @@ export default function PetLCD({
     [...sp.egg.pts, ...CRACKS[3]].forEach(([x, y]) => pix.push([eggX + st.wobble + x, eggY + y]));
   } else {
     const px = hatching ? Math.floor((cols - 16) / 2) : st.x;
-    const tear = mood === "hungry" && !a && !sleeping && st.tick % 6 < 2 ? TEAR : [];
-    const parts = [...sp.body.pts, ...atFace([...EYES[eyes], ...MOUTHS[mouth], ...tear])];
+    const crying = mood === "hungry" && !a && !sleeping && st.tick % 6 < 2;
+    const parts = [...sp.body.pts, ...petFace(sp, eyes, mouth, crying)];
     parts.forEach(([x, y]) => pix.push([px + x, petY + y]));
     // 孵化後段：蛋殼碎片往左右飛走
     if (hatching && a.t <= 6) {

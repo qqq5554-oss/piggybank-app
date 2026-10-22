@@ -5,7 +5,7 @@ import { themeOf } from "../utils/format";
 import PetLCD, { LCD_BG } from "./pet/PetLCD";
 import PixelHeart from "./pet/PixelHeart";
 import PinPadModal from "./PinPadModal";
-import { SPECIES, SPECIES_ORDER, EYES, MOUTHS } from "./pet/sprites";
+import { SPECIES, SPECIES_ORDER, petFace } from "./pet/sprites";
 import {
   PET_FOODS,
   PET_TOO_FULL,
@@ -396,7 +396,7 @@ function EggPicker({ theme, busy, msg, onPick }) {
         {SPECIES_ORDER.map((key) => {
           const art = SPECIES[key];
           const info = PET_SPECIES[key];
-          const face = [...EYES.open, ...MOUTHS.smile].map(([x, y]) => [x + art.face[0], y + art.face[1]]);
+          const face = petFace(art, "open", "smile");
           return (
             <button
               key={key}
