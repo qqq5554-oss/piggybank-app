@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { pickWeightedIndex } from "../lib/weightedPick.js";
-import { PET_FOODS, PET_DECAY_PER_HOUR, PET_TOO_FULL, PET_RANDOM_GIFT_CHANCE, PET_SPECIES, PET_DEFAULT_NAMES, currentFullness, petStage } from "../lib/petRules.js";
+import { PET_FOODS, PET_DECAY_PER_HOUR, PET_TOO_FULL, PET_SPECIES, PET_DEFAULT_NAMES, currentFullness, petStage } from "../lib/petRules.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
@@ -561,7 +561,7 @@ export default async function handler(req, res) {
         const fullness = Number(rows[0].fullness);
         let gift = null;
 
-        // 驚喜一：今天第一次餵到全飽，從獎勵轉盤的獎品裡抽一個送給小主人。
+        // 驚喜：今天第一次餵到全飽，從獎勵轉盤的獎品裡抽一個送給小主人（一天只有這一次）。
         // 先用一句有條件的 update「搶」今天的名額，同時按兩下也只會送一次。
         if (fullness >= 100) {
           const claimed = await sql`
@@ -592,16 +592,6 @@ export default async function handler(req, res) {
               gift = { kind: "daily", label: "送你 2 顆星星", emoji: "⭐", coupon: false, points: 2, money: 0 };
             }
           }
-        }
-
-        // 驚喜二：每次餵食都有一點點機率撿到星星
-        if (!gift && Math.random() < PET_RANDOM_GIFT_CHANCE) {
-          const n = 1 + Math.floor(Math.random() * 2);
-          await sql.transaction([
-            sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, ${n}, ${`寵物驚喜：撿到 ${n} 顆星星`})`,
-            sql`update kids set character_points = character_points + ${n} where id = ${kidId}`,
-          ]);
-          gift = { kind: "random", label: `撿到 ${n} 顆星星`, emoji: "⭐", coupon: false, points: n, money: 0 };
         }
 
         return res.status(200).json({ ok: true, fullness, gift });

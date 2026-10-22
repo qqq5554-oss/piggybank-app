@@ -23,7 +23,7 @@ const isNight = () => {
 };
 
 // 小寵物（電子雞）頁：用責任值星星買食物餵牠。
-// 每天第一次餵到全飽會送一個驚喜（從獎勵轉盤的獎品抽），餵食時偶爾也會撿到星星。
+// 每天第一次餵到全飽會送一個驚喜（從獎勵轉盤的獎品抽），一天一次。
 // 一開始先選一顆蛋（刺蝟／兔子／小團子），點蛋幫牠取暖，點滿就孵出來。
 export default function PetScreen({ kid, pet, today, onBack, refetch }) {
   const theme = themeOf(kid.theme_id);
@@ -346,7 +346,6 @@ export default function PetScreen({ kid, pet, today, onBack, refetch }) {
         <div style={{ marginTop: 18, width: "100%", maxWidth: 340, fontSize: 12, color: "#B4A392", lineHeight: 1.9 }}>
           · 用今日責任賺到的 ⭐ 買食物餵牠，大約兩天會從全飽變成肚子扁扁
           <br />· 每天第一次餵到全飽，會從獎勵轉盤的獎品裡送你一個驚喜
-          <br />· 餵東西的時候偶爾也會撿到星星送你
           <br />· 點螢幕可以摸摸牠；餓扁了也不會不見，餵牠就會好起來
         </div>
 
@@ -448,7 +447,7 @@ function GiftReveal({ gift, petName, theme, onClose }) {
         style={{ width: "100%", maxWidth: 320, background: "#fff", borderRadius: 22, padding: "24px 22px 20px", textAlign: "center", animation: "toastIn .25s ease-out" }}
       >
         <div style={{ fontSize: 13, fontWeight: 800, color: "#B4A392" }}>
-          {gift.kind === "daily" ? `${petName}吃得好飽，送你一個驚喜！` : `${petName}在草叢裡找到東西了！`}
+          {petName}吃得好飽，送你一個驚喜！
         </div>
         <div style={{ fontSize: 60, lineHeight: 1.3, marginTop: 6 }}>{gift.emoji || "🎁"}</div>
         <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, fontWeight: 800, color: theme.accentDark }}>{gift.label}</div>
