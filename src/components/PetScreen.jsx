@@ -63,8 +63,9 @@ export default function PetScreen({
   useEffect(() => {
     if (stage !== "hatched" || !today) return;
     setPetMsg(
-      todayPetMessage(kid.id, today, () =>
+      todayPetMessage(kid.id, today, (recent) =>
         composePetMessage({
+          recent,
           kid,
           pet,
           species,
@@ -105,6 +106,10 @@ export default function PetScreen({
   const stars = Number(kid.character_points) || 0;
   const petName = pet?.name || "小團子";
   const giftDone = pet?.last_gift_date === today;
+  // 今天的責任全部做完才能餵（伺服器也會再檢查一次）
+  const doneToday = new Set(responsibilityLogs.filter((l) => l.log_date === today).map((l) => l.responsibility_id));
+  const choresLeft = responsibilities.filter((r) => !doneToday.has(r.id)).length;
+  const locked = choresLeft > 0;
 
   const feed = async (food) => {
     if (busy) return;
@@ -319,7 +324,7 @@ export default function PetScreen({
           {/* 三顆按鈕＝三種食物 */}
           <div style={{ display: "flex", justifyContent: "space-around", marginTop: 18 }}>
             {PET_FOODS.map((food) => {
-              const disabled = busy || tooFull || stars < food.cost;
+              const disabled = busy || locked || tooFull || stars < food.cost;
               return (
                 <button
                   key={food.id}
@@ -349,6 +354,11 @@ export default function PetScreen({
               );
             })}
           </div>
+          {locked && (
+            <div style={{ marginTop: 12, background: "rgba(0,0,0,.18)", borderRadius: 12, padding: "8px 12px", color: "#fff", fontWeight: 800, fontSize: 13, textAlign: "center" }}>
+              🔒 今天的責任還差 {choresLeft} 件，做完才能餵牠喔
+            </div>
+          )}
           </>
           )}
         </div>
@@ -418,7 +428,7 @@ export default function PetScreen({
         </div>
 
         <div style={{ marginTop: 18, width: "100%", maxWidth: 340, fontSize: 12, color: "#B4A392", lineHeight: 1.9 }}>
-          · 用今日責任賺到的 ⭐ 買食物餵牠，餵飽之後大約一天會肚子餓
+          · 今天的責任全部做完，才可以用 ⭐ 買食物餵牠；餵飽之後大約一天會肚子餓
           <br />· 每天第一次餵到全飽，會從獎勵轉盤的獎品裡送你一個驚喜
           <br />· 點螢幕可以摸摸牠；餓扁了也不會不見，餵牠就會好起來
           <br />· 心情好的時候牠會自己玩球、散步、跳舞；每天也會有一句話想跟你說

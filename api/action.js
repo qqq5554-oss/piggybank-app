@@ -536,6 +536,18 @@ export default async function handler(req, res) {
         const petRow = await sql`select * from pets where kid_id = ${kidId}`;
         if (petStage(petRow[0]).stage !== "hatched") return res.status(400).json({ error: "還是一顆蛋，要先孵出來才能吃東西喔" });
 
+        // 跟獎勵轉盤一樣：今天的責任全部做完才能餵，不然星星很多的時候
+        // 會乾脆不做責任、直接拿存的星星餵。還沒設定責任的小孩就不擋。
+        const progress = await sql`
+          select count(r.id) as total, count(rl.id) as done
+          from responsibilities r
+          left join responsibility_logs rl
+            on rl.responsibility_id = r.id and rl.kid_id = ${kidId} and rl.log_date = current_date
+          where r.kid_id = ${kidId}
+        `;
+        const left = Number(progress[0]?.total || 0) - Number(progress[0]?.done || 0);
+        if (left > 0) return res.status(400).json({ error: `今天的責任還差 ${left} 件，做完才能餵牠喔` });
+
         // 一句 SQL 做完「確認吃得下 → 扣星星 → 記一筆 → 加飽足度」，
         // 中間任何一步不成立就全部不做，不會發生扣了星星卻沒餵到。
         // 飽足度直接用那一列當下的值算，連按兩下也會正確疊加。
