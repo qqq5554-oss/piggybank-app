@@ -19,12 +19,11 @@ import {
   heartsOf,
   petStage,
   crackOf,
+  isPetSleepTime,
+  PET_SLEEP_LABEL,
 } from "../../lib/petRules.js";
 
-const isNight = () => {
-  const h = new Date().getHours();
-  return h >= 21 || h < 7;
-};
+const isNight = () => isPetSleepTime();
 
 // 小寵物（電子雞）頁：用責任值星星買食物餵牠。
 // 每天第一次餵到全飽會送一個驚喜（從獎勵轉盤的獎品抽），一天一次。
@@ -379,7 +378,7 @@ export default function PetScreen({
           {activity && !busy ? `${petName}${ACTIVITY_LABELS[activity] || ""}` : statusLine()} <span style={{ color: "#B4A392", fontWeight: 700, fontSize: 13 }}>（飽足度 {Math.round(fullness)}%）</span>
         </div>
         {isNight() && !busy && (
-          <div style={{ marginTop: 4, fontSize: 12.5, color: "#94795F" }}>💤 晚上 9 點到早上 7 點牠在睡覺，餵牠會醒來吃</div>
+          <div style={{ marginTop: 4, fontSize: 12.5, color: "#94795F" }}>💤 {PET_SLEEP_LABEL}牠在睡覺，餵牠會醒來吃</div>
         )}
         {msg && <div style={{ marginTop: 8, color: "#E85D5D", fontWeight: 700, fontSize: 13.5 }}>{msg}</div>}
 

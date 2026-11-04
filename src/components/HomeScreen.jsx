@@ -4,7 +4,7 @@ import { currency, themeOf } from "../utils/format";
 import PetLCD from "./pet/PetLCD";
 import PixelHeart from "./pet/PixelHeart";
 import { hasUnreadPetMessage } from "./pet/petMessages";
-import { currentFullness, heartsOf, petStage, PET_SPECIES, PET_HUNGRY_BELOW } from "../../lib/petRules.js";
+import { currentFullness, heartsOf, petStage, PET_SPECIES, PET_HUNGRY_BELOW, isPetSleepTime } from "../../lib/petRules.js";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
 const ACTIONS = [
@@ -240,8 +240,7 @@ function PetStrip({ pet, fullness, theme, unread, onOpen }) {
   const { stage, species } = petStage(pet);
   const hatched = stage === "hatched";
   const hearts = heartsOf(fullness);
-  const h = new Date().getHours();
-  const sleeping = h >= 21 || h < 7;
+  const sleeping = isPetSleepTime();
   const title =
     stage === "choose" ? "還沒有寵物" : stage === "egg" ? `${PET_SPECIES[species]?.name || ""}的蛋` : pet.name || "小團子";
   const status =

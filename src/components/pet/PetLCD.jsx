@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useReducer, useRef } from "react";
 import { FOODS, FX, PROPS, MYSTERY_EGG, CRACKS } from "./sprites";
 import { petArt, BIG_PROPS } from "./petArt";
-import { moodOf, PET_TOO_FULL } from "../../../lib/petRules.js";
+import { moodOf, PET_TOO_FULL, isPetSleepTime } from "../../../lib/petRules.js";
 import { pickActivity, startActivity, stepActivity, viewActivity } from "./activities";
 
 // 經典電子雞的單色液晶：淡綠底、深綠點，還有沒亮的格子淡淡的殘影
@@ -10,10 +10,7 @@ const LCD_GHOST = "#BCC69A";
 const INK = "#2F3A24";
 
 const TICK_MS = 420; // 一格一格跳的速度，刻意不做流暢動畫，才有液晶的感覺
-const isNight = () => {
-  const h = new Date().getHours();
-  return h >= 21 || h < 7;
-};
+const isNight = () => isPetSleepTime();
 const chance = (p) => Math.random() < p;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -58,6 +55,7 @@ export default function PetLCD({
       act: null, // 正在自己玩的活動
       lastAct: null,
       pokes: [], // 最近幾下摸摸的時間，連戳太多下會生氣
+      playedOnOpen: false, // 打開畫面後第一個活動開始了沒
     };
   }
   const propsRef = useRef({});
@@ -189,8 +187,12 @@ export default function PetLCD({
           st.act = null;
           onAct?.(null);
         }
-      } else if ((mood === "happy" || mood === "normal") && st.tick > 6 && chance(mood === "happy" ? 0.035 : 0.02)) {
-        // 心情不錯的時候，偶爾自己找事情做
+      } else if (
+        (mood === "happy" || mood === "normal") &&
+        ((!st.playedOnOpen && st.tick >= 3) || (st.tick > 6 && chance(mood === "happy" ? 0.05 : 0.03)))
+      ) {
+        // 一打開就在做事情（等畫面先站好一下）；之後心情不錯的時候也常常自己找事情做
+        st.playedOnOpen = true;
         const type = pickActivity(spc, art, st.lastAct);
         st.act = startActivity(type, st, C, art);
         onAct?.(type);
