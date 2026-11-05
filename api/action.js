@@ -587,7 +587,9 @@ export default async function handler(req, res) {
 
         // 驚喜：今天第一次餵到全飽，從獎勵轉盤的獎品裡抽一個送給小主人（一天只有這一次）。
         // 先用一句有條件的 update「搶」今天的名額，同時按兩下也只會送一次。
-        if (fullness >= 100) {
+        // 「全飽」＝飽到吃不下（超過 PET_TOO_FULL），不能要求剛好 100：
+        // 超過 90 就不能再餵了，98 的時候會卡住，永遠拿不到禮物。
+        if (fullness > PET_TOO_FULL) {
           const claimed = await sql`
             update pets set last_gift_date = current_date
             where kid_id = ${kidId} and (last_gift_date is null or last_gift_date < current_date)
