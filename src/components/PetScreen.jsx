@@ -25,7 +25,7 @@ import {
 
 const isNight = () => isPetSleepTime();
 
-// 小寵物（電子雞）頁：用責任值星星買食物餵牠。
+// 小寵物（電子雞）頁：今天的責任做完，就可以餵牠吃飯（不用星星）。
 // 每天第一次餵到全飽會送一個驚喜（從獎勵轉盤的獎品抽），一天一次。
 // 一開始先選一顆蛋（刺蝟／兔子／小團子），點蛋幫牠取暖，點滿就孵出來。
 export default function PetScreen({
@@ -102,7 +102,6 @@ export default function PetScreen({
   const fullness = currentFullness(base.fullness, base.at, now);
   const hearts = heartsOf(fullness);
   const tooFull = fullness > PET_TOO_FULL;
-  const stars = Number(kid.character_points) || 0;
   const petName = pet?.name || "小團子";
   const giftDone = pet?.last_gift_date === today;
   // 今天的責任全部做完才能餵（伺服器也會再檢查一次）
@@ -119,7 +118,7 @@ export default function PetScreen({
       setOverride({ fullness: r.fullness, at: new Date().toISOString() });
       setPendingGift(r.gift || null);
       setEvent({ id: Date.now(), type: "eat", food: food.id, gift: !!r.gift });
-      refetch(); // 背景更新星星數，不用等
+      refetch(); // 背景更新資料，不用等
     } catch (e) {
       setMsg(e.message || "餵食失敗");
       setBusy(false);
@@ -224,7 +223,6 @@ export default function PetScreen({
         <span style={{ fontFamily: "'Baloo 2', sans-serif", fontWeight: 800, fontSize: 17 }}>
           {kid.avatar} {kid.name}的寵物
         </span>
-        <span style={{ marginLeft: "auto", fontWeight: 800, color: "#8A7457", fontSize: 15 }}>⭐ {stars}</span>
       </div>
 
       {stage === "choose" ? (
@@ -323,7 +321,7 @@ export default function PetScreen({
           {/* 三顆按鈕＝三種食物 */}
           <div style={{ display: "flex", justifyContent: "space-around", marginTop: 18 }}>
             {PET_FOODS.map((food) => {
-              const disabled = busy || locked || tooFull || stars < food.cost;
+              const disabled = busy || locked || tooFull;
               return (
                 <button
                   key={food.id}
@@ -347,7 +345,7 @@ export default function PetScreen({
                     {food.emoji}
                   </span>
                   <span style={{ color: "#fff", fontWeight: 800, fontSize: 12.5, textShadow: "0 1px 0 rgba(0,0,0,.2)" }}>
-                    {food.name} {food.cost}⭐
+                    {food.name}
                   </span>
                 </button>
               );
@@ -427,7 +425,7 @@ export default function PetScreen({
         </div>
 
         <div style={{ marginTop: 18, width: "100%", maxWidth: 340, fontSize: 12, color: "#B4A392", lineHeight: 1.9 }}>
-          · 今天的責任全部做完，才可以用 ⭐ 買食物餵牠；餵飽之後大約一天會肚子餓
+          · 今天的責任全部做完，就有今天的飯可以餵牠（不用星星）；餵飽之後大約一天會肚子餓
           <br />· 每天第一次餵到全飽，會從獎勵轉盤的獎品裡送你一個驚喜
           <br />· 點螢幕可以摸摸牠；餓扁了也不會不見，餵牠就會好起來
           <br />· 心情好的時候牠會自己玩球、散步、跳舞；每天也會有一句話想跟你說

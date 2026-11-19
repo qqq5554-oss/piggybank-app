@@ -30,6 +30,8 @@ export function useKidsData(enabled = true, onUnauthorized) {
   const [weekStart, setWeekStart] = useState(null);
   const [pets, setPets] = useState([]);
   const [features, setFeatures] = useState({ spinWheel: true, rewardWheel: true });
+  const [chestPrizes, setChestPrizes] = useState([]);
+  const [chestOpens, setChestOpens] = useState([]);
   const [vapidPublicKey, setVapidPublicKey] = useState(null);
   const [today, setToday] = useState(null); // 資料庫伺服器認定的「今天」，不是瀏覽器自己算的
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,8 @@ export function useKidsData(enabled = true, onUnauthorized) {
       setWeekStart(data.weekStart || null);
       setPets(data.pets || []);
       if (data.features) setFeatures(data.features);
+      setChestPrizes(data.chestPrizes || []);
+      setChestOpens(data.chestOpens || []);
       setVapidPublicKey(data.vapidPublicKey);
       setToday(data.today);
     } catch (err) {
@@ -103,6 +107,8 @@ export function useKidsData(enabled = true, onUnauthorized) {
     weekStart,
     pets,
     features,
+    chestPrizes,
+    chestOpens,
     vapidPublicKey,
     today,
     loading,

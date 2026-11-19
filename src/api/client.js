@@ -167,6 +167,15 @@ export const updateRewardWheelOption = (optionId, label, rewardPoints, rewardMon
 export const deleteRewardWheelOption = (optionId) => post("delete_reward_wheel_option", { optionId });
 export const reorderRewardWheelOptions = (ids) => post("reorder_reward_wheel_options", { ids });
 
+// ------- 七天寶箱 -------
+export const openChest = (kidId) => post("open_chest", { kidId });
+export const addChestPrize = (label, rewardPoints, rewardMoney, weight, sortOrder, emoji = "") =>
+  post("add_chest_prize", { label, rewardPoints, rewardMoney, weight, sortOrder, emoji });
+export const updateChestPrize = (optionId, label, rewardPoints, rewardMoney, weight, emoji = "") =>
+  post("update_chest_prize", { optionId, label, rewardPoints, rewardMoney, weight, emoji });
+export const deleteChestPrize = (optionId) => post("delete_chest_prize", { optionId });
+export const reorderChestPrizes = (ids) => post("reorder_chest_prizes", { ids });
+
 // ------- 兌換券 -------
 export const useCoupon = (couponId) => post("use_coupon", { couponId });
 export const deleteCoupon = (couponId) => post("delete_coupon", { couponId });

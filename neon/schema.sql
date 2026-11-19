@@ -440,3 +440,32 @@ on conflict (kid_id) do nothing;
 -- 已經有的寵物兩欄都是 null → 會回到「選一顆蛋」，小孩可以重新選、重新孵
 alter table pets add column if not exists species text;
 alter table pets add column if not exists hatched_at timestamptz;
+
+-- ============================================================
+-- Phase 16 追加（連續 7 天完成今日責任 → 開寶箱）
+-- ⚠️ 可以直接在既有資料庫上執行
+-- ============================================================
+
+-- 寶箱的獎品（家長在「管理 → 七天寶箱」設定），跟獎勵轉盤一樣：
+-- ⭐ 和錢都沒填的就是一張兌換券，weight 是中獎的份數
+create table if not exists chest_prizes (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  emoji text,
+  reward_points numeric not null default 0,
+  reward_money numeric not null default 0,
+  weight numeric not null default 1,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- 開過的寶箱。milestone_date 是「連續第 7、14… 天」那一天，
+-- 同一個寶箱只能開一次，靠 unique 擋
+create table if not exists chest_opens (
+  id uuid primary key default gen_random_uuid(),
+  kid_id uuid not null references kids(id) on delete cascade,
+  milestone_date date not null,
+  label text,
+  created_at timestamptz not null default now(),
+  unique (kid_id, milestone_date)
+);

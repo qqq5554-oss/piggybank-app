@@ -59,6 +59,8 @@ export default function App() {
     weekStart,
     pets,
     features,
+    chestPrizes,
+    chestOpens,
     vapidPublicKey,
     today,
     loading,
@@ -125,6 +127,7 @@ export default function App() {
       timerLabel={timer.running ? formatRemaining(timer.remainingMs) : null}
       pets={pets}
       features={features}
+      chestOpens={chestOpens}
     />
   );
 
@@ -138,6 +141,7 @@ export default function App() {
         rewardItems={rewardItems}
         todaySpin={rewardSpins.find((s) => s.kid_id === activeKid.id) || null}
         hasWheelOptions={features.rewardWheel && rewardWheelOptions.length > 0}
+        chestOpens={chestOpens.filter((c) => c.kid_id === activeKid.id)}
         today={today}
         onBack={goHome}
         onGoWheel={() => setScreen("rewardWheel")}
@@ -248,6 +252,7 @@ export default function App() {
         expenseRules={expenseRules}
         rewardItems={rewardItems}
         rewardWheelOptions={rewardWheelOptions}
+        chestPrizes={chestPrizes}
         features={features}
         vapidPublicKey={vapidPublicKey}
         pin={null}

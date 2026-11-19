@@ -8,7 +8,8 @@ const ROW_H = 52; // 每一列的高度（含間距），拖曳時用來算要�
 // 轉盤選項的編輯器：可以改文字、拖曳把手上下調整順序、刪除、新增。
 // 兩個轉盤（決定事情用的、每日獎勵用的）共用這一個元件，
 // withRewards = true 時多出「完成給幾⭐／幾元」兩個欄位。
-export default function WheelOptionsEditor({ options, withRewards = false, withWeights = false, onAdd, onUpdate, onDelete, onReorder }) {
+// noWheel：不是畫在轉盤上的獎品清單（例如七天寶箱），就不顯示轉盤專用的說明
+export default function WheelOptionsEditor({ options, withRewards = false, withWeights = false, noWheel = false, onAdd, onUpdate, onDelete, onReorder }) {
   const [items, setItems] = useState(options);
   const [editingId, setEditingId] = useState(null);
   const [editLabel, setEditLabel] = useState("");
@@ -313,8 +314,12 @@ export default function WheelOptionsEditor({ options, withRewards = false, withW
 
       <div style={{ fontSize: 11.5, color: "#C4B4A0", marginTop: 10, lineHeight: 1.7 }}>
         按住左邊的 ⠿ 上下拖曳可以調整順序，鉛筆可以改內容{withWeights ? "與中獎機率" : ""}。
-        <br />
-        設了 emoji 的話，轉盤上就只畫那個 emoji（字太長會擠在一起），完整文字會在轉到結果時顯示。
+        {!noWheel && (
+          <>
+            <br />
+            設了 emoji 的話，轉盤上就只畫那個 emoji（字太長會擠在一起），完整文字會在轉到結果時顯示。
+          </>
+        )}
       </div>
     </div>
   );

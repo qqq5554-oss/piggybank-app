@@ -4,6 +4,7 @@ import { currency, themeOf } from "../utils/format";
 import PetLCD from "./pet/PetLCD";
 import PixelHeart from "./pet/PixelHeart";
 import { hasUnreadPetMessage } from "./pet/petMessages";
+import { chestStatus } from "../../lib/streak.js";
 import { currentFullness, heartsOf, petStage, PET_SPECIES, PET_HUNGRY_BELOW, isPetSleepTime } from "../../lib/petRules.js";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
@@ -34,6 +35,7 @@ export default function HomeScreen({
   timerLabel = null,
   pets = [],
   features = { spinWheel: true, rewardWheel: true },
+  chestOpens = [],
 }) {
   // 設定裡關掉的功能就不顯示
   const actions = ACTIONS.filter((a) => a.id !== "rewardWheel" || features.rewardWheel);
@@ -112,8 +114,16 @@ export default function HomeScreen({
           const allDone = kidResponsibilities.length > 0 && doneCount === kidResponsibilities.length;
           const pet = pets.find((p) => p.kid_id === kid.id);
           const petFull = pet ? currentFullness(pet.fullness, pet.fullness_at) : null;
+          const chest = chestStatus({
+            responsibilityIds: kidResponsibilities.map((r) => r.id),
+            logs: responsibilityLogs.filter((l) => l.kid_id === kid.id),
+            openedDates: chestOpens.filter((c) => c.kid_id === kid.id).map((c) => c.milestone_date),
+            today,
+          });
 
           const badgeFor = (actionId) => {
+            // 有寶箱可以開的時候，比進度更重要
+            if (actionId === "today" && chest.available.length > 0) return "🎁";
             if (actionId === "today" && kidResponsibilities.length > 0) {
               return `${doneCount}/${kidResponsibilities.length}`;
             }

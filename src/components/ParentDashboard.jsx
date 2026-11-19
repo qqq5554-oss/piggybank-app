@@ -40,6 +40,7 @@ import { currency, formatDate, themeOf, KID_THEMES, AVATARS } from "../utils/for
 import { subscribePush, unsubscribePush, getExistingSubscription, pushSupported, isIOS, isStandalone } from "../utils/push";
 import WheelOptionsEditor from "./WheelOptionsEditor";
 import { addRewardWheelOption, updateRewardWheelOption, deleteRewardWheelOption, reorderRewardWheelOptions } from "../api/client";
+import { addChestPrize, updateChestPrize, deleteChestPrize, reorderChestPrizes } from "../api/client";
 import TransactionList from "./TransactionList";
 
 const WEEKDAY_LABELS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -54,6 +55,7 @@ export default function ParentDashboard({
   expenseRules,
   rewardItems,
   rewardWheelOptions = [],
+  chestPrizes = [],
   features = { spinWheel: true, rewardWheel: true },
   vapidPublicKey,
   pin,
@@ -83,6 +85,7 @@ export default function ParentDashboard({
           { id: "missions", label: "特殊任務" },
           { id: "rewards", label: "兌換清單" },
           { id: "rewardWheel", label: "獎勵轉盤" },
+          { id: "chest", label: "七天寶箱" },
           { id: "recurring", label: "定期收支" },
           { id: "settings", label: "設定" },
         ].map((t) => (
@@ -113,6 +116,7 @@ export default function ParentDashboard({
         {tab === "missions" && <MissionsManageTab kids={kids} missions={missions} pin={pin} refetch={refetch} />}
         {tab === "rewards" && <RewardsManageTab rewardItems={rewardItems} pin={pin} refetch={refetch} />}
         {tab === "rewardWheel" && <RewardWheelManageTab options={rewardWheelOptions} refetch={refetch} />}
+        {tab === "chest" && <ChestManageTab prizes={chestPrizes} refetch={refetch} />}
         {tab === "recurring" && (
           <RecurringManageTab kids={kids} allowanceRules={allowanceRules} expenseRules={expenseRules} pin={pin} refetch={refetch} />
         )}
@@ -924,6 +928,42 @@ function RewardWheelManageTab({ options, refetch }) {
         }}
         onReorder={async (ids) => {
           await reorderRewardWheelOptions(ids);
+          await refetch();
+        }}
+      />
+    </div>
+  );
+}
+
+// ---------------- 七天寶箱管理 ----------------
+function ChestManageTab({ prizes, refetch }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: "#B4A392", marginBottom: 12, lineHeight: 1.8 }}>
+        小孩連續 7 天把今日責任全部做完，就可以開一個寶箱（第 14、21 天也各一個，中斷就重新算）。
+        寶箱是比每天的小獎勵更大、更稀有的獎品，例如「週末選全家出去玩的地方」。
+        ⭐ 和錢留空的話會變成一張兌換券；「份數」越小越難抽到。
+        還沒設定獎品的話，寶箱會先送 10 顆星星。
+      </div>
+      <WheelOptionsEditor
+        options={prizes}
+        withRewards
+        withWeights
+        noWheel
+        onAdd={async ({ label, rewardPoints, rewardMoney, weight, emoji }) => {
+          await addChestPrize(label, rewardPoints, rewardMoney, weight, prizes.length + 1, emoji);
+          await refetch();
+        }}
+        onUpdate={async (id, { label, rewardPoints, rewardMoney, weight, emoji }) => {
+          await updateChestPrize(id, label, rewardPoints, rewardMoney, weight, emoji);
+          await refetch();
+        }}
+        onDelete={async (id) => {
+          await deleteChestPrize(id);
+          await refetch();
+        }}
+        onReorder={async (ids) => {
+          await reorderChestPrizes(ids);
           await refetch();
         }}
       />

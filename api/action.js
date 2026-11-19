@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { pickWeightedIndex } from "../lib/weightedPick.js";
-import { PET_FOODS, PET_DECAY_PER_HOUR, PET_TOO_FULL, PET_SPECIES, PET_DEFAULT_NAMES, currentFullness, petStage } from "../lib/petRules.js";
+import { chestStatus } from "../lib/streak.js";
+import { PET_FOODS, PET_DECAY_PER_HOUR, PET_TOO_FULL, PET_SPECIES, PET_DEFAULT_NAMES, petStage } from "../lib/petRules.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
@@ -536,8 +537,7 @@ export default async function handler(req, res) {
         const petRow = await sql`select * from pets where kid_id = ${kidId}`;
         if (petStage(petRow[0]).stage !== "hatched") return res.status(400).json({ error: "還是一顆蛋，要先孵出來才能吃東西喔" });
 
-        // 跟獎勵轉盤一樣：今天的責任全部做完才能餵，不然星星很多的時候
-        // 會乾脆不做責任、直接拿存的星星餵。還沒設定責任的小孩就不擋。
+        // 今天的責任全部做完才有飯吃（不用星星）。還沒設定責任的小孩就不擋。
         const progress = await sql`
           select count(r.id) as total, count(rl.id) as done
           from responsibilities r
@@ -548,39 +548,20 @@ export default async function handler(req, res) {
         const left = Number(progress[0]?.total || 0) - Number(progress[0]?.done || 0);
         if (left > 0) return res.status(400).json({ error: `今天的責任還差 ${left} 件，做完才能餵牠喔` });
 
-        // 一句 SQL 做完「確認吃得下 → 扣星星 → 記一筆 → 加飽足度」，
-        // 中間任何一步不成立就全部不做，不會發生扣了星星卻沒餵到。
-        // 飽足度直接用那一列當下的值算，連按兩下也會正確疊加。
+        // 食物不用星星買：做完今天的責任，今天的飯就有了（星星留著換獎勵）。
+        // 一句 SQL 做完「確認吃得下 → 加飽足度」，飽足度直接用那一列當下的值算，
+        // 連按兩下也會正確疊加。
         const decay = PET_DECAY_PER_HOUR;
         const rows = await sql`
-          with cur as (
-            select greatest(0, least(100, fullness - ${decay}::numeric * extract(epoch from (now() - fullness_at))::numeric / 3600)) as f
-            from pets where kid_id = ${kidId}
-          ), k as (
-            update kids set character_points = character_points - ${food.cost}
-            where id = ${kidId}
-              and character_points >= ${food.cost}
-              and exists (select 1 from cur where f <= ${PET_TOO_FULL})
-            returning id
-          ), lg as (
-            insert into character_point_logs (kid_id, delta, reason)
-            select ${kidId}::uuid, ${-food.cost}::numeric, ${"餵寵物：" + food.name}::text from k
-          )
           update pets set
             fullness = least(100, greatest(0, least(100, fullness - ${decay}::numeric * extract(epoch from (now() - fullness_at))::numeric / 3600)) + ${food.fill}::numeric),
             fullness_at = now(),
             total_fed = total_fed + 1
-          where kid_id = ${kidId} and exists (select 1 from k)
+          where kid_id = ${kidId}
+            and greatest(0, least(100, fullness - ${decay}::numeric * extract(epoch from (now() - fullness_at))::numeric / 3600)) <= ${PET_TOO_FULL}
           returning fullness
         `;
-
-        if (!rows[0]) {
-          // 沒餵成功，查一下是哪個原因，給看得懂的訊息
-          const pet = await sql`select fullness, fullness_at from pets where kid_id = ${kidId}`;
-          const f = pet[0] ? currentFullness(pet[0].fullness, pet[0].fullness_at) : 0;
-          if (f > PET_TOO_FULL) return res.status(400).json({ error: "牠現在很飽，吃不下了" });
-          return res.status(400).json({ error: `責任值星星不夠（${food.name}要 ${food.cost} 顆）` });
-        }
+        if (!rows[0]) return res.status(400).json({ error: "牠現在很飽，吃不下了" });
 
         const fullness = Number(rows[0].fullness);
         let gift = null;
@@ -707,6 +688,85 @@ export default async function handler(req, res) {
         await sql.transaction(
           ids.map((id, i) => sql`update reward_wheel_options set sort_order = ${i + 1} where id = ${id}`)
         );
+        break;
+      }
+
+      // ------- 七天寶箱 -------
+      case "open_chest": {
+        // 連續完成今日責任每 7 天一個寶箱。連續天數在後端自己算，不信前端
+        const { kidId } = payload;
+        const [resps, logs, opens] = await Promise.all([
+          sql`select id from responsibilities where kid_id = ${kidId}`,
+          sql`
+            select responsibility_id, to_char(log_date, 'YYYY-MM-DD') as log_date
+            from responsibility_logs where kid_id = ${kidId} and log_date > current_date - 62
+          `,
+          sql`select to_char(milestone_date, 'YYYY-MM-DD') as d from chest_opens where kid_id = ${kidId}`,
+        ]);
+        const todayRow = await sql`select to_char(current_date, 'YYYY-MM-DD') as today`;
+        const status = chestStatus({
+          responsibilityIds: resps.map((r) => r.id),
+          logs,
+          openedDates: opens.map((o) => o.d),
+          today: todayRow[0].today,
+        });
+        const milestone = status.available[0];
+        if (!milestone) return res.status(400).json({ error: `還沒有寶箱可以開，再連續 ${status.toNext} 天就有了` });
+
+        // 先「搶」這個寶箱，同時按兩下也只會開一次
+        const claimed = await sql`
+          insert into chest_opens (kid_id, milestone_date) values (${kidId}, ${milestone})
+          on conflict (kid_id, milestone_date) do nothing
+          returning id
+        `;
+        if (!claimed[0]) return res.status(400).json({ error: "這個寶箱已經開過了" });
+
+        const prizes = await sql`select * from chest_prizes order by sort_order, created_at`;
+        // 家長還沒設定獎品的話，先送 10 顆星星
+        const win = prizes.length
+          ? prizes[pickWeightedIndex(prizes.map((p) => p.weight ?? 1))]
+          : { label: "10 顆星星", emoji: "⭐", reward_points: 10, reward_money: 0 };
+        const { queries, issueCoupon } = prizeQueries(kidId, win, { source: "chest", reasonPrefix: "七天寶箱：" });
+        await sql.transaction([...queries, sql`update chest_opens set label = ${win.label} where id = ${claimed[0].id}`]);
+        return res.status(200).json({
+          ok: true,
+          prize: {
+            label: win.label,
+            emoji: win.emoji || "🎁",
+            coupon: issueCoupon,
+            points: Number(win.reward_points) || 0,
+            money: Number(win.reward_money) || 0,
+          },
+        });
+      }
+      case "add_chest_prize": {
+        const { label, rewardPoints = 0, rewardMoney = 0, weight = 1, sortOrder = 0, emoji = "" } = payload;
+        await sql`
+          insert into chest_prizes (label, reward_points, reward_money, weight, sort_order, emoji)
+          values (${label}, ${rewardPoints}, ${rewardMoney}, ${Math.max(0.01, Number(weight) || 1)}, ${sortOrder}, ${cleanEmoji(emoji)})
+        `;
+        break;
+      }
+      case "update_chest_prize": {
+        const { optionId, label, rewardPoints = 0, rewardMoney = 0, weight = 1, emoji = "" } = payload;
+        await sql`
+          update chest_prizes
+          set label = ${label},
+              reward_points = ${rewardPoints},
+              reward_money = ${rewardMoney},
+              weight = ${Math.max(0.01, Number(weight) || 1)},
+              emoji = ${cleanEmoji(emoji)}
+          where id = ${optionId}
+        `;
+        break;
+      }
+      case "delete_chest_prize": {
+        await sql`delete from chest_prizes where id = ${payload.optionId}`;
+        break;
+      }
+      case "reorder_chest_prizes": {
+        const ids = payload.ids || [];
+        await sql.transaction(ids.map((id, i) => sql`update chest_prizes set sort_order = ${i + 1} where id = ${id}`));
         break;
       }
 

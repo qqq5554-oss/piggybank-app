@@ -3,6 +3,7 @@ import { ChevronLeft, Gift, Star, ChevronRight } from "lucide-react";
 import { toggleResponsibility as apiToggleResponsibility, redeemReward as apiRedeemReward, fetchTransactions } from "../api/client";
 import { themeOf } from "../utils/format";
 import TransactionList from "./TransactionList";
+import ChestCard from "./ChestCard";
 
 // 「今日責任」獨立功能頁：上面打卡，下面用責任值兌換獎勵
 export default function TodayResponsibilityScreen({
@@ -12,6 +13,7 @@ export default function TodayResponsibilityScreen({
   rewardItems,
   todaySpin = null,
   hasWheelOptions = false,
+  chestOpens = [],
   today,
   onBack,
   onGoWheel,
@@ -96,6 +98,15 @@ export default function TodayResponsibilityScreen({
       </div>
 
       <div style={{ padding: "18px 18px 40px" }}>
+        <ChestCard
+          kid={kid}
+          responsibilities={responsibilities}
+          responsibilityLogs={responsibilityLogs}
+          chestOpens={chestOpens}
+          today={todayDatePart}
+          theme={theme}
+          refetch={refetch}
+        />
         {responsibilities.length === 0 && (
           <div style={{ textAlign: "center", color: "#B4A392", padding: "20px 0" }}>
             還沒有設定生活責任項目，可以到「管理」裡新增
