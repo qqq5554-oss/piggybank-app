@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { pickWeightedIndex } from "../lib/weightedPick.js";
 import { chestStatus } from "../lib/streak.js";
-import { PET_FOODS, PET_DECAY_PER_HOUR, PET_TOO_FULL, PET_SPECIES, PET_DEFAULT_NAMES, petStage } from "../lib/petRules.js";
+import { PET_SPECIES, PET_DEFAULT_NAMES, petStage } from "../lib/petRules.js";
 
 const sql = neon(process.env.DATABASE_URL);
 
@@ -526,18 +526,12 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, optionId: win.id, label: win.label, emoji: win.emoji || "", coupon: issueCoupon });
       }
       // ------- 小寵物 -------
-      case "feed_pet": {
-        const { kidId, foodId } = payload;
-        const food = PET_FOODS.find((f) => f.id === foodId);
-        if (!food) return res.status(400).json({ error: "沒有這種食物" });
-
-        await sql`insert into pets (kid_id) values (${kidId}) on conflict (kid_id) do nothing`;
-
-        // 還是蛋（或還沒選蛋）不能餵
+      case "claim_pet_gift": {
+        // 寵物不會餓了：今天的責任全部做完，寵物就送一個小禮物（從獎勵轉盤的獎品抽，一天一次）
+        const { kidId } = payload;
         const petRow = await sql`select * from pets where kid_id = ${kidId}`;
-        if (petStage(petRow[0]).stage !== "hatched") return res.status(400).json({ error: "還是一顆蛋，要先孵出來才能吃東西喔" });
+        if (petStage(petRow[0]).stage !== "hatched") return res.status(400).json({ error: "還是一顆蛋，要先孵出來喔" });
 
-        // 今天的責任全部做完才有飯吃（不用星星）。還沒設定責任的小孩就不擋。
         const progress = await sql`
           select count(r.id) as total, count(rl.id) as done
           from responsibilities r
@@ -545,63 +539,41 @@ export default async function handler(req, res) {
             on rl.responsibility_id = r.id and rl.kid_id = ${kidId} and rl.log_date = current_date
           where r.kid_id = ${kidId}
         `;
-        const left = Number(progress[0]?.total || 0) - Number(progress[0]?.done || 0);
-        if (left > 0) return res.status(400).json({ error: `今天的責任還差 ${left} 件，做完才能餵牠喔` });
+        const total = Number(progress[0]?.total || 0);
+        const left = total - Number(progress[0]?.done || 0);
+        if (total === 0) return res.status(400).json({ error: "還沒有設定今日責任" });
+        if (left > 0) return res.status(400).json({ error: `今天的責任還差 ${left} 件，做完就有禮物喔` });
 
-        // 食物不用星星買：做完今天的責任，今天的飯就有了（星星留著換獎勵）。
-        // 一句 SQL 做完「確認吃得下 → 加飽足度」，飽足度直接用那一列當下的值算，
-        // 連按兩下也會正確疊加。
-        const decay = PET_DECAY_PER_HOUR;
-        const rows = await sql`
-          update pets set
-            fullness = least(100, greatest(0, least(100, fullness - ${decay}::numeric * extract(epoch from (now() - fullness_at))::numeric / 3600)) + ${food.fill}::numeric),
-            fullness_at = now(),
-            total_fed = total_fed + 1
-          where kid_id = ${kidId}
-            and greatest(0, least(100, fullness - ${decay}::numeric * extract(epoch from (now() - fullness_at))::numeric / 3600)) <= ${PET_TOO_FULL}
-          returning fullness
+        // 先用一句有條件的 update「搶」今天的名額，同時按兩下也只會送一次
+        const claimed = await sql`
+          update pets set last_gift_date = current_date
+          where kid_id = ${kidId} and (last_gift_date is null or last_gift_date < current_date)
+          returning id
         `;
-        if (!rows[0]) return res.status(400).json({ error: "牠現在很飽，吃不下了" });
+        if (!claimed[0]) return res.status(400).json({ error: "今天的禮物已經收過了，明天再來喔" });
 
-        const fullness = Number(rows[0].fullness);
-        let gift = null;
-
-        // 驚喜：今天第一次餵到全飽，從獎勵轉盤的獎品裡抽一個送給小主人（一天只有這一次）。
-        // 先用一句有條件的 update「搶」今天的名額，同時按兩下也只會送一次。
-        // 「全飽」＝飽到吃不下（超過 PET_TOO_FULL），不能要求剛好 100：
-        // 超過 90 就不能再餵了，98 的時候會卡住，永遠拿不到禮物。
-        if (fullness > PET_TOO_FULL) {
-          const claimed = await sql`
-            update pets set last_gift_date = current_date
-            where kid_id = ${kidId} and (last_gift_date is null or last_gift_date < current_date)
-            returning id
-          `;
-          if (claimed[0]) {
-            const win = await drawRewardOption();
-            if (win) {
-              const { queries, issueCoupon } = prizeQueries(kidId, win, { source: "pet", reasonPrefix: "寵物驚喜：" });
-              await sql.transaction([...queries, sql`update pets set last_gift_label = ${win.label} where kid_id = ${kidId}`]);
-              gift = {
-                kind: "daily",
-                label: win.label,
-                emoji: win.emoji || "🎁",
-                coupon: issueCoupon,
-                points: Number(win.reward_points) || 0,
-                money: Number(win.reward_money) || 0,
-              };
-            } else {
-              // 獎勵轉盤還沒設定獎品的話，就送星星
-              await sql.transaction([
-                sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, 2, '寵物驚喜：送你 2 顆星星')`,
-                sql`update kids set character_points = character_points + 2 where id = ${kidId}`,
-                sql`update pets set last_gift_label = '2 顆星星' where kid_id = ${kidId}`,
-              ]);
-              gift = { kind: "daily", label: "送你 2 顆星星", emoji: "⭐", coupon: false, points: 2, money: 0 };
-            }
-          }
+        let gift;
+        const win = await drawRewardOption();
+        if (win) {
+          const { queries, issueCoupon } = prizeQueries(kidId, win, { source: "pet", reasonPrefix: "寵物驚喜：" });
+          await sql.transaction([...queries, sql`update pets set last_gift_label = ${win.label} where kid_id = ${kidId}`]);
+          gift = {
+            label: win.label,
+            emoji: win.emoji || "🎁",
+            coupon: issueCoupon,
+            points: Number(win.reward_points) || 0,
+            money: Number(win.reward_money) || 0,
+          };
+        } else {
+          // 獎勵轉盤還沒設定獎品的話，就送星星
+          await sql.transaction([
+            sql`insert into character_point_logs (kid_id, delta, reason) values (${kidId}, 2, '寵物驚喜：送你 2 顆星星')`,
+            sql`update kids set character_points = character_points + 2 where id = ${kidId}`,
+            sql`update pets set last_gift_label = '2 顆星星' where kid_id = ${kidId}`,
+          ]);
+          gift = { label: "送你 2 顆星星", emoji: "⭐", coupon: false, points: 2, money: 0 };
         }
-
-        return res.status(200).json({ ok: true, fullness, gift });
+        return res.status(200).json({ ok: true, gift });
       }
       case "choose_pet": {
         // 選一顆蛋。只有「還沒選」的時候可以選，換寵物要走 reset_pet（要家長密碼）

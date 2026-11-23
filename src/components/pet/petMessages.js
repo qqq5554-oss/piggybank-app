@@ -307,7 +307,7 @@ export function composePetMessage({ kid, pet, species, today, responsibilities =
     } else {
       add("cheer", variant("yNone", [
         "今天的責任一件一件慢慢來，做完一件就很棒了！",
-        "今天做完責任，就可以餵我吃好吃的了，我等你喔 😋",
+        "今天做完責任，我就有禮物要送你喔，我等你 😋",
         "我們今天一起把責任做完，好不好？",
       ]), 1);
     }

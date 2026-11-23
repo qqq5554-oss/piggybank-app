@@ -142,6 +142,11 @@ export default function App() {
         todaySpin={rewardSpins.find((s) => s.kid_id === activeKid.id) || null}
         hasWheelOptions={features.rewardWheel && rewardWheelOptions.length > 0}
         chestOpens={chestOpens.filter((c) => c.kid_id === activeKid.id)}
+        petGiftFrom={(() => {
+          const pet = pets.find((p) => p.kid_id === activeKid.id);
+          return pet?.hatched_at && pet.last_gift_date !== today ? pet.name || "小寵物" : null;
+        })()}
+        onGoPet={() => setScreen("pet")}
         today={today}
         onBack={goHome}
         onGoWheel={() => setScreen("rewardWheel")}

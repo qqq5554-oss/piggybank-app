@@ -14,6 +14,8 @@ export default function TodayResponsibilityScreen({
   todaySpin = null,
   hasWheelOptions = false,
   chestOpens = [],
+  petGiftFrom = null, // 寵物今天還有禮物沒收的話，是牠的名字
+  onGoPet,
   today,
   onBack,
   onGoWheel,
@@ -151,6 +153,26 @@ export default function TodayResponsibilityScreen({
             );
           })}
         </div>
+
+        {allDone && petGiftFrom && (
+          <button
+            onClick={onGoPet}
+            style={{
+              width: "100%",
+              marginBottom: 14,
+              border: "2px solid #F2C38F",
+              borderRadius: 16,
+              padding: "14px 16px",
+              background: "#FFF4E6",
+              color: "#B86A1E",
+              fontWeight: 800,
+              fontSize: 15.5,
+              animation: "toastIn .3s ease-out",
+            }}
+          >
+            🎁 {petGiftFrom}準備了禮物給你，去看看！
+          </button>
+        )}
 
         {allDone && hasWheelOptions && (
           <div style={{ marginBottom: 26, animation: "toastIn .3s ease-out" }}>

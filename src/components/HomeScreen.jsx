@@ -2,10 +2,9 @@ import React from "react";
 import { Settings, Home, TrendingDown, TrendingUp, Star, Trophy, Disc3, Timer, Gift, Ticket, Wallet, ChevronRight } from "lucide-react";
 import { currency, themeOf } from "../utils/format";
 import PetLCD from "./pet/PetLCD";
-import PixelHeart from "./pet/PixelHeart";
 import { hasUnreadPetMessage } from "./pet/petMessages";
 import { chestStatus } from "../../lib/streak.js";
-import { currentFullness, heartsOf, petStage, PET_SPECIES, PET_HUNGRY_BELOW, isPetSleepTime } from "../../lib/petRules.js";
+import { petStage, PET_SPECIES, isPetSleepTime } from "../../lib/petRules.js";
 
 // 卡片上的常用功能：點下去各自進到獨立的功能頁
 const ACTIONS = [
@@ -113,7 +112,6 @@ export default function HomeScreen({
           const spunToday = rewardSpins.some((s) => s.kid_id === kid.id);
           const allDone = kidResponsibilities.length > 0 && doneCount === kidResponsibilities.length;
           const pet = pets.find((p) => p.kid_id === kid.id);
-          const petFull = pet ? currentFullness(pet.fullness, pet.fullness_at) : null;
           const chest = chestStatus({
             responsibilityIds: kidResponsibilities.map((r) => r.id),
             logs: responsibilityLogs.filter((l) => l.kid_id === kid.id),
@@ -231,7 +229,8 @@ export default function HomeScreen({
               {pet && (
                 <PetStrip
                   pet={pet}
-                  fullness={petFull}
+                  giftReady={allDone && pet?.last_gift_date !== today}
+                  giftDone={pet?.last_gift_date === today}
                   theme={theme}
                   unread={!!today && hasUnreadPetMessage(kid.id, today)}
                   onOpen={() => onAction(kid.id, "pet")}
@@ -245,11 +244,10 @@ export default function HomeScreen({
   );
 }
 
-// 卡片下面的寵物小螢幕：一眼看出牠餓不餓，點了進寵物頁
-function PetStrip({ pet, fullness, theme, unread, onOpen }) {
+// 卡片下面的寵物小螢幕：看牠在做什麼、有沒有禮物要給你，點了進寵物頁
+function PetStrip({ pet, giftReady, giftDone, theme, unread, onOpen }) {
   const { stage, species } = petStage(pet);
   const hatched = stage === "hatched";
-  const hearts = heartsOf(fullness);
   const sleeping = isPetSleepTime();
   const title =
     stage === "choose" ? "還沒有寵物" : stage === "egg" ? `${PET_SPECIES[species]?.name || ""}的蛋` : pet.name || "小團子";
@@ -258,18 +256,16 @@ function PetStrip({ pet, fullness, theme, unread, onOpen }) {
       ? "點進來選一顆蛋！"
       : stage === "egg"
       ? "點進來幫牠孵化 🥚"
-      : fullness <= 0
-      ? "餓扁了！"
-      : fullness < PET_HUNGRY_BELOW
-      ? "肚子餓了！"
+      : giftReady
+      ? "🎁 有禮物要給你！"
       : unread
       ? "有話想跟你說 💌"
       : sleeping
       ? "睡覺中 💤"
-      : fullness > 90
-      ? "吃飽飽"
-      : "";
-  const urgent = hatched && fullness < PET_HUNGRY_BELOW;
+      : giftDone
+      ? "今天的禮物收到了"
+      : "做完今日責任有禮物";
+  const highlight = !hatched || giftReady || unread;
   return (
     <button
       onClick={onOpen}
@@ -288,22 +284,13 @@ function PetStrip({ pet, fullness, theme, unread, onOpen }) {
     >
       {/* 跟寵物頁一樣高（33 格），頭上的音符、蝴蝶、泡泡、對話框都放得下 */}
       <div style={{ width: 156, flexShrink: 0, borderRadius: 8, overflow: "hidden", border: "3px solid #4B3F33" }}>
-        <PetLCD cols={52} rows={33} fullness={fullness} species={species || "dango"} stage={stage} hasNews={hatched && unread} />
+        <PetLCD cols={52} rows={33} species={species || "dango"} stage={stage} hasNews={hatched && unread} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 13.5, color: "#5A4632", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {title}
         </div>
-        {hatched && (
-          <div style={{ display: "flex", gap: 2, marginTop: 4 }}>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <PixelHeart key={i} full={i < hearts} size={13} color={theme.accentDark} />
-            ))}
-          </div>
-        )}
-        {status && (
-          <div style={{ fontSize: 11, fontWeight: 800, marginTop: 3, color: urgent ? "#E85D5D" : !hatched || (unread && status.includes("💌")) ? theme.accentDark : "#94795F" }}>{status}</div>
-        )}
+        <div style={{ fontSize: 11, fontWeight: 800, marginTop: 4, color: highlight ? theme.accentDark : "#94795F" }}>{status}</div>
       </div>
       <ChevronRight size={16} color={theme.accentDark} style={{ opacity: 0.5, flexShrink: 0 }} />
     </button>

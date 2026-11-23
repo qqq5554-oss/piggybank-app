@@ -149,8 +149,8 @@ export const deleteWheelOption = (optionId) => post("delete_wheel_option", { opt
 export const reorderWheelOptions = (ids) => post("reorder_wheel_options", { ids });
 
 // ------- 每日獎勵轉盤 -------
-// 小寵物：用責任值星星買食物餵牠
-export const feedPet = (kidId, foodId) => post("feed_pet", { kidId, foodId });
+// 小寵物：今天的責任做完，收下寵物送的禮物（一天一次）
+export const claimPetGift = (kidId) => post("claim_pet_gift", { kidId });
 export const renamePet = (kidId, name) => post("rename_pet", { kidId, name });
 export const choosePet = (kidId, species) => post("choose_pet", { kidId, species });
 export const hatchPet = (kidId) => post("hatch_pet", { kidId });

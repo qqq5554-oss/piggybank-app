@@ -1,22 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { ChevronLeft, Pencil, Check } from "lucide-react";
-import { feedPet, renamePet, choosePet, hatchPet, resetPet } from "../api/client";
+import { claimPetGift, renamePet, choosePet, hatchPet, resetPet } from "../api/client";
 import { themeOf } from "../utils/format";
 import PetLCD, { LCD_BG } from "./pet/PetLCD";
-import PixelHeart from "./pet/PixelHeart";
 import PinPadModal from "./PinPadModal";
 import { ACTIVITY_LABELS } from "./pet/activities";
 import { composePetMessage, todayPetMessage, markPetMessageRead } from "./pet/petMessages";
 import { SPECIES, SPECIES_ORDER } from "./pet/sprites";
 import { petArt } from "./pet/petArt";
 import {
-  PET_FOODS,
-  PET_TOO_FULL,
   PET_SPECIES,
   PET_HATCH_TAPS,
-  PET_HUNGRY_BELOW,
-  currentFullness,
-  heartsOf,
   petStage,
   crackOf,
   isPetSleepTime,
@@ -25,8 +19,8 @@ import {
 
 const isNight = () => isPetSleepTime();
 
-// 小寵物（電子雞）頁：今天的責任做完，就可以餵牠吃飯（不用星星）。
-// 每天第一次餵到全飽會送一個驚喜（從獎勵轉盤的獎品抽），一天一次。
+// 小寵物（電子雞）頁：寵物不會餓，每天開開心心的。
+// 今天的責任全部做完，牠就會送一個小禮物（從獎勵轉盤的獎品抽），一天一次。
 // 一開始先選一顆蛋（刺蝟／兔子／小團子），點蛋幫牠取暖，點滿就孵出來。
 export default function PetScreen({
   kid,
@@ -40,13 +34,11 @@ export default function PetScreen({
   refetch,
 }) {
   const theme = themeOf(kid.theme_id);
-  const [now, setNow] = useState(Date.now());
-  const [override, setOverride] = useState(null); // 剛餵完、資料還沒重新抓回來前先用這個
   const [event, setEvent] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const [gift, setGift] = useState(null);
-  const [pendingGift, setPendingGift] = useState(null);
+  const [gift, setGift] = useState(null); // 要打開給小孩看的禮物
+  const [pendingGift, setPendingGift] = useState(null); // 寵物送禮動作播完才打開
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [taps, setTaps] = useState(0); // 蛋被點了幾下（取暖）
@@ -89,38 +81,24 @@ export default function PetScreen({
     if (!busy) setEvent({ id: Date.now(), type: "pet" }); // 說完開心跳一下
   };
 
-  // 飽足度是一直在掉的，畫面每 30 秒重算一次
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(t);
-  }, []);
-
-  // 伺服器的新資料回來了，就不用再靠暫存值
-  useEffect(() => setOverride(null), [pet?.fullness_at]);
-
-  const base = override || { fullness: pet?.fullness ?? 60, at: pet?.fullness_at ?? new Date().toISOString() };
-  const fullness = currentFullness(base.fullness, base.at, now);
-  const hearts = heartsOf(fullness);
-  const tooFull = fullness > PET_TOO_FULL;
   const petName = pet?.name || "小團子";
   const giftDone = pet?.last_gift_date === today;
-  // 今天的責任全部做完才能餵（伺服器也會再檢查一次）
+  // 今天的責任全部做完才有禮物（伺服器也會再檢查一次）
   const doneToday = new Set(responsibilityLogs.filter((l) => l.log_date === today).map((l) => l.responsibility_id));
   const choresLeft = responsibilities.filter((r) => !doneToday.has(r.id)).length;
-  const locked = choresLeft > 0;
+  const giftReady = responsibilities.length > 0 && choresLeft === 0 && !giftDone;
 
-  const feed = async (food) => {
+  const takeGift = async () => {
     if (busy) return;
     setMsg("");
     setBusy(true);
     try {
-      const r = await feedPet(kid.id, food.id);
-      setOverride({ fullness: r.fullness, at: new Date().toISOString() });
-      setPendingGift(r.gift || null);
-      setEvent({ id: Date.now(), type: "eat", food: food.id, gift: !!r.gift });
+      const r = await claimPetGift(kid.id);
+      setPendingGift(r.gift);
+      setEvent({ id: Date.now(), type: "gift" });
       refetch(); // 背景更新資料，不用等
     } catch (e) {
-      setMsg(e.message || "餵食失敗");
+      setMsg(e.message || "收禮物失敗");
       setBusy(false);
     }
   };
@@ -136,7 +114,7 @@ export default function PetScreen({
       setEditingName(true);
       return;
     }
-    if (evt?.type === "eat") {
+    if (evt?.type === "gift") {
       setBusy(false);
       if (pendingGift) {
         setGift(pendingGift);
@@ -206,13 +184,7 @@ export default function PetScreen({
     }
   };
 
-  const statusLine = () => {
-    if (fullness <= 0) return "餓扁了！快餵牠吃東西";
-    if (fullness < PET_HUNGRY_BELOW) return "肚子好餓⋯⋯";
-    if (fullness < 70) return "有一點點餓";
-    if (tooFull) return "吃得飽飽的，現在吃不下了";
-    return "心情很好";
-  };
+  const statusLine = () => (isNight() ? "睡得好香 💤" : "心情很好");
 
   return (
     <div style={{ minHeight: "100vh", background: "#FBF6EF" }}>
@@ -284,7 +256,6 @@ export default function PetScreen({
               <PetLCD
                 cols={40}
                 rows={33}
-                fullness={fullness}
                 species={species || "dango"}
                 stage={stage}
                 crack={crackOf(taps)}
@@ -311,51 +282,39 @@ export default function PetScreen({
             </div>
           ) : (
           <>
-          {/* 飽足度愛心 */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 14 }} aria-label={`飽足度 ${hearts} / 5`}>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <PixelHeart key={i} full={i < hearts} />
-            ))}
+          {/* 今天的禮物 */}
+          <div style={{ marginTop: 16 }}>
+            {giftDone ? (
+              <div style={{ background: "rgba(255,255,255,.9)", borderRadius: 14, padding: "11px 12px", color: "#94795F", fontWeight: 800, fontSize: 13.5, textAlign: "center" }}>
+                今天的禮物收到了：{pet?.last_gift_label || "🎁"}
+              </div>
+            ) : giftReady ? (
+              <button
+                onClick={takeGift}
+                disabled={busy}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  borderRadius: 16,
+                  padding: "14px 12px",
+                  background: "#FFF9F2",
+                  color: theme.accentDark,
+                  fontWeight: 800,
+                  fontSize: 16,
+                  boxShadow: "inset 0 -4px 0 rgba(0,0,0,.1), 0 3px 0 rgba(0,0,0,.18)",
+                  opacity: busy ? 0.6 : 1,
+                }}
+              >
+                🎁 {petName}準備了禮物，點我收下！
+              </button>
+            ) : (
+              <div style={{ background: "rgba(0,0,0,.18)", borderRadius: 14, padding: "11px 12px", color: "#fff", fontWeight: 800, fontSize: 13.5, textAlign: "center", lineHeight: 1.6 }}>
+                {responsibilities.length === 0
+                  ? "設定今日責任後，做完就會收到禮物"
+                  : `🎁 今天的責任還差 ${choresLeft} 件，做完${petName}會送你禮物`}
+              </div>
+            )}
           </div>
-
-          {/* 三顆按鈕＝三種食物 */}
-          <div style={{ display: "flex", justifyContent: "space-around", marginTop: 18 }}>
-            {PET_FOODS.map((food) => {
-              const disabled = busy || locked || tooFull;
-              return (
-                <button
-                  key={food.id}
-                  onClick={() => feed(food)}
-                  disabled={disabled}
-                  style={{ border: "none", background: "none", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, opacity: disabled ? 0.5 : 1 }}
-                >
-                  <span
-                    style={{
-                      width: 58,
-                      height: 58,
-                      borderRadius: "50%",
-                      background: "#FFF9F2",
-                      boxShadow: "inset 0 -4px 0 rgba(0,0,0,.12), 0 3px 0 rgba(0,0,0,.18)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 28,
-                    }}
-                  >
-                    {food.emoji}
-                  </span>
-                  <span style={{ color: "#fff", fontWeight: 800, fontSize: 12.5, textShadow: "0 1px 0 rgba(0,0,0,.2)" }}>
-                    {food.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {locked && (
-            <div style={{ marginTop: 12, background: "rgba(0,0,0,.18)", borderRadius: 12, padding: "8px 12px", color: "#fff", fontWeight: 800, fontSize: 13, textAlign: "center" }}>
-              🔒 今天的責任還差 {choresLeft} 件，做完才能餵牠喔
-            </div>
-          )}
           </>
           )}
         </div>
@@ -373,10 +332,10 @@ export default function PetScreen({
           </div>
         )}
         <div style={{ marginTop: 16, fontWeight: 800, color: "#5A4632", fontSize: 15 }}>
-          {activity && !busy ? `${petName}${ACTIVITY_LABELS[activity] || ""}` : statusLine()} <span style={{ color: "#B4A392", fontWeight: 700, fontSize: 13 }}>（飽足度 {Math.round(fullness)}%）</span>
+          {activity && !busy ? `${petName}${ACTIVITY_LABELS[activity] || ""}` : statusLine()}
         </div>
         {isNight() && !busy && (
-          <div style={{ marginTop: 4, fontSize: 12.5, color: "#94795F" }}>💤 {PET_SLEEP_LABEL}牠在睡覺，餵牠會醒來吃</div>
+          <div style={{ marginTop: 4, fontSize: 12.5, color: "#94795F" }}>💤 {PET_SLEEP_LABEL}牠在睡覺，點螢幕會把牠叫醒</div>
         )}
         {msg && <div style={{ marginTop: 8, color: "#E85D5D", fontWeight: 700, fontSize: 13.5 }}>{msg}</div>}
 
@@ -405,30 +364,10 @@ export default function PetScreen({
           </button>
         )}
 
-        <div
-          style={{
-            marginTop: 14,
-            width: "100%",
-            maxWidth: 340,
-            boxSizing: "border-box",
-            background: giftDone ? "#F7F1E9" : "#FFF4E6",
-            border: giftDone ? "none" : "2px dashed #F2C38F",
-            borderRadius: 14,
-            padding: "11px 14px",
-            fontSize: 13.5,
-            fontWeight: 700,
-            color: giftDone ? "#94795F" : "#B86A1E",
-            textAlign: "center",
-          }}
-        >
-          {giftDone ? `今天的驚喜送過了：${pet?.last_gift_label || "🎁"}` : "🎁 今天第一次把牠餵到全飽，牠會送你一個驚喜！"}
-        </div>
-
         <div style={{ marginTop: 18, width: "100%", maxWidth: 340, fontSize: 12, color: "#B4A392", lineHeight: 1.9 }}>
-          · 今天的責任全部做完，就有今天的飯可以餵牠（不用星星）；餵飽之後大約一天會肚子餓
-          <br />· 每天第一次餵到全飽，會從獎勵轉盤的獎品裡送你一個驚喜
-          <br />· 點螢幕可以摸摸牠；餓扁了也不會不見，餵牠就會好起來
-          <br />· 心情好的時候牠會自己玩球、散步、跳舞；每天也會有一句話想跟你說
+          · 今天的責任全部做完，{petName}會從獎勵轉盤的獎品裡送你一個小禮物（一天一次）
+          <br />· 點螢幕可以摸摸牠
+          <br />· 牠會自己玩球、散步、跳舞；每天也會有一句話想跟你說
         </div>
 
         <button
@@ -579,7 +518,7 @@ function GiftReveal({ gift, petName, theme, onClose }) {
         style={{ width: "100%", maxWidth: 320, background: "#fff", borderRadius: 22, padding: "24px 22px 20px", textAlign: "center", animation: "toastIn .25s ease-out" }}
       >
         <div style={{ fontSize: 13, fontWeight: 800, color: "#B4A392" }}>
-          {petName}吃得好飽，送你一個驚喜！
+          謝謝你今天把責任都做完，{petName}送你一個禮物！
         </div>
         <div style={{ fontSize: 60, lineHeight: 1.3, marginTop: 6 }}>{gift.emoji || "🎁"}</div>
         <div style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 24, fontWeight: 800, color: theme.accentDark }}>{gift.label}</div>
